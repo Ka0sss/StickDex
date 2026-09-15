@@ -12,6 +12,7 @@ export interface Album {
   releaseDate: string | null
   stickerType: string | null
   totalStickers: number
+  userId?: number | null
   createdAt: string
 }
 

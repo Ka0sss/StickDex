@@ -224,6 +224,15 @@ model CollectedSticker {
 
 Base: `/api`.
 
+### Autenticación
+
+| Método | Ruta | Descripción |
+|--------|------|-------------|
+| POST   | `/auth/register` | Registrar usuario y crear sesión |
+| POST   | `/auth/login` | Iniciar sesión |
+| POST   | `/auth/logout` | Cerrar sesión activa |
+| GET    | `/auth/me` | Obtener usuario de la sesión activa |
+
 ### Álbumes
 
 | Método | Ruta | Descripción |
@@ -244,13 +253,22 @@ Base: `/api`.
 | PUT    | `/stickers/:id` | Editar lámina |
 | DELETE | `/stickers/:id` | Eliminar lámina |
 
-### Reportes de colección
+### Colecciones
 
 | Método | Ruta | Descripción |
 |--------|------|-------------|
+| GET    | `/collections` | Listar colecciones (filtro opcional: `userId`, `isPublic`) |
+| GET    | `/collections/:id` | Detalle de colección con progreso y láminas poseídas |
+| POST   | `/collections` | Crear colección para un álbum |
+| PUT    | `/collections/:id` | Editar colección (nombre, visibilidad pública) |
+| DELETE | `/collections/:id` | Eliminar colección |
+| POST   | `/collections/:id/stickers` | Añadir lámina a la colección (o incrementar cantidad) |
+| PUT    | `/collections/:id/stickers/:stickerId` | Actualizar cantidad o marcar como repetida |
+| DELETE | `/collections/:id/stickers/:stickerId` | Quitar lámina de la colección |
 | GET    | `/collections/:id/missing` | Láminas faltantes del álbum |
 | GET    | `/collections/:id/duplicates` | Láminas repetidas, con cantidad por lámina |
 
+- **Progreso**: porcentaje y conteo de láminas únicas obtenidas vs total del álbum.
 - **Faltantes**: láminas del álbum que no están en la colección.
 - **Repetidas**: láminas con más de una copia; la respuesta incluye la cantidad de repetidas por lámina.
 

@@ -3,7 +3,7 @@
 ## Modos operativos activos
 
 - **Caveman (ultra)**: comunicación terse en toda respuesta. Prosa comprimida, sin filler ni artículos; fragmentos OK. Términos técnicos, código, errores, comandos y tipos de commit se mantienen verbatim. No aplica a código, commits ni docs (se escriben normales). Apagar: "stop caveman" / "normal mode".
-- **Ponytail (full)**: código mínimo que funciona. Escalera: ¿necesario? → ¿ya existe en el repo? → stdlib → nativo → dependencia instalada → una línea → mínimo. YAGNI; sin abstracciones, factories ni scaffolding especulativos. No simplificar jamás: validación en fronteras de confianza, manejo de errores que evita pérdida de datos, seguridad, accesibilidad, y lo pedido explícito. Apagar: "stop ponytail" / "normal mode".
+- **Ponytail (lite)**: construir lo pedido, y nombrar la alternativa más simple en una línea para que el usuario decida. Sin imponer minimalismo extremo. No simplificar jamás: validación en fronteras de confianza, manejo de errores que evita pérdida de datos, seguridad, accesibilidad, y lo pedido explícito. Apagar: "stop ponytail" / "normal mode".
 
 ## Antes de editar
 

@@ -275,6 +275,12 @@ Base: `/api`.
 - **Faltantes**: láminas del álbum que no están en la colección.
 - **Repetidas**: láminas con más de una copia; la respuesta incluye la cantidad de repetidas por lámina.
 
+### Subida de imágenes (Multer)
+
+| Método | Ruta | Descripción |
+|--------|------|-------------|
+| POST   | `/upload` | Subir archivo de imagen (multipart/form-data, max 5MB, JPEG/PNG/WEBP/GIF) |
+
 ## 13. Routing (recomendación)
 
 **Sí, usar `react-router` (paquete `react-router-dom`)** para las rutas del frontend.

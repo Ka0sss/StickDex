@@ -1,7 +1,7 @@
 import { prisma } from '../config/prisma'
 
 export const collectionRepository = {
-  findAll(where?: { userId?: number; isPublic?: boolean }) {
+  findAll(where?: Record<string, unknown>) {
     return prisma.collection.findMany({
       where,
       include: {

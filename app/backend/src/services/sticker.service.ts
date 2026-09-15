@@ -15,13 +15,19 @@ export const stickerService = {
     return stickerRepository.findByAlbum(albumId)
   },
 
-  async create(albumId: number, data: StickerData) {
-    await albumService.getById(albumId)
+  async create(albumId: number, data: StickerData, currentUserId?: number) {
+    const album = await albumService.getById(albumId)
+    if (album.userId && currentUserId && album.userId !== currentUserId) {
+      throw new HttpError(403, 'No tienes permiso para agregar láminas a este álbum')
+    }
     return stickerRepository.create(albumId, data)
   },
 
-  async createBulk(albumId: number, stickers: StickerData[]) {
-    await albumService.getById(albumId)
+  async createBulk(albumId: number, stickers: StickerData[], currentUserId?: number) {
+    const album = await albumService.getById(albumId)
+    if (album.userId && currentUserId && album.userId !== currentUserId) {
+      throw new HttpError(403, 'No tienes permiso para agregar láminas a este álbum')
+    }
     return stickerRepository.createMany(albumId, stickers)
   },
 
@@ -31,13 +37,21 @@ export const stickerService = {
     return sticker
   },
 
-  async update(id: number, data: Partial<StickerData>) {
-    await this.getById(id)
+  async update(id: number, data: Partial<StickerData>, currentUserId?: number) {
+    const sticker = await this.getById(id)
+    const album = await albumService.getById(sticker.albumId)
+    if (album.userId && currentUserId && album.userId !== currentUserId) {
+      throw new HttpError(403, 'No tienes permiso para modificar láminas de este álbum')
+    }
     return stickerRepository.update(id, data)
   },
 
-  async delete(id: number) {
-    await this.getById(id)
+  async delete(id: number, currentUserId?: number) {
+    const sticker = await this.getById(id)
+    const album = await albumService.getById(sticker.albumId)
+    if (album.userId && currentUserId && album.userId !== currentUserId) {
+      throw new HttpError(403, 'No tienes permiso para eliminar láminas de este álbum')
+    }
     return stickerRepository.delete(id)
   },
 }

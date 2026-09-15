@@ -12,15 +12,25 @@ export const albumController = {
   },
 
   async create(req: Request, res: Response) {
-    res.status(201).json(await albumService.create(req.body as CreateAlbumInput))
+    const album = await albumService.create({
+      ...(req.body as CreateAlbumInput),
+      userId: req.session.userId,
+    })
+    res.status(201).json(album)
   },
 
   async update(req: Request, res: Response) {
-    res.json(await albumService.update(Number(req.params.id), req.body as UpdateAlbumInput))
+    res.json(
+      await albumService.update(
+        Number(req.params.id),
+        req.body as UpdateAlbumInput,
+        req.session.userId,
+      ),
+    )
   },
 
   async delete(req: Request, res: Response) {
-    await albumService.delete(Number(req.params.id))
+    await albumService.delete(Number(req.params.id), req.session.userId)
     res.status(200).json({ message: 'Álbum eliminado' })
   },
 }

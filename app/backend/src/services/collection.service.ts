@@ -28,13 +28,34 @@ type UpdateStickerData = {
 }
 
 export const collectionService = {
-  list(filter?: { userId?: number; isPublic?: boolean }) {
-    return collectionRepository.findAll(filter)
+  list(filter?: { userId?: number; isPublic?: boolean }, currentUserId?: number) {
+    if (filter?.userId !== undefined) {
+      // Si consulta sus propias colecciones, puede ver públicas y privadas. Si no, solo públicas.
+      const isOwner = currentUserId !== undefined && currentUserId === filter.userId
+      return collectionRepository.findAll({
+        userId: filter.userId,
+        ...(isOwner ? (filter.isPublic !== undefined ? { isPublic: filter.isPublic } : {}) : { isPublic: true }),
+      })
+    }
+
+    if (currentUserId !== undefined) {
+      // Colecciones públicas o las propias
+      return collectionRepository.findAll({
+        OR: [{ isPublic: true }, { userId: currentUserId }],
+      })
+    }
+
+    // Usuario anónimo solo ve públicas
+    return collectionRepository.findAll({ isPublic: true })
   },
 
-  async getById(id: number) {
+  async getById(id: number, currentUserId?: number) {
     const collection = await collectionRepository.findDetailedById(id)
     if (!collection) throw new HttpError(404, 'Colección no encontrada')
+
+    if (!collection.isPublic && (!currentUserId || collection.userId !== currentUserId)) {
+      throw new HttpError(403, 'Esta colección es privada')
+    }
 
     const totalStickers = collection.album.totalStickers
     const collectedCount = collection.stickers.length
@@ -59,19 +80,35 @@ export const collectionService = {
     return collectionRepository.create(data)
   },
 
-  async update(id: number, data: UpdateCollectionData) {
-    await this.getById(id)
+  async update(id: number, data: UpdateCollectionData, currentUserId: number) {
+    const collection = await collectionRepository.findById(id)
+    if (!collection) throw new HttpError(404, 'Colección no encontrada')
+
+    if (collection.userId !== currentUserId) {
+      throw new HttpError(403, 'No tienes permiso para modificar esta colección')
+    }
+
     return collectionRepository.update(id, data)
   },
 
-  async delete(id: number) {
-    await this.getById(id)
+  async delete(id: number, currentUserId: number) {
+    const collection = await collectionRepository.findById(id)
+    if (!collection) throw new HttpError(404, 'Colección no encontrada')
+
+    if (collection.userId !== currentUserId) {
+      throw new HttpError(403, 'No tienes permiso para eliminar esta colección')
+    }
+
     return collectionRepository.delete(id)
   },
 
-  async addSticker(collectionId: number, data: AddStickerData) {
+  async addSticker(collectionId: number, data: AddStickerData, currentUserId: number) {
     const collection = await collectionRepository.findById(collectionId)
     if (!collection) throw new HttpError(404, 'Colección no encontrada')
+
+    if (collection.userId !== currentUserId) {
+      throw new HttpError(403, 'No tienes permiso para agregar láminas a esta colección')
+    }
 
     const sticker = await stickerRepository.findById(data.stickerId)
     if (!sticker) throw new HttpError(404, 'Lámina no encontrada')
@@ -90,9 +127,18 @@ export const collectionService = {
     })
   },
 
-  async updateSticker(collectionId: number, stickerId: number, data: UpdateStickerData) {
+  async updateSticker(
+    collectionId: number,
+    stickerId: number,
+    data: UpdateStickerData,
+    currentUserId: number,
+  ) {
     const collection = await collectionRepository.findById(collectionId)
     if (!collection) throw new HttpError(404, 'Colección no encontrada')
+
+    if (collection.userId !== currentUserId) {
+      throw new HttpError(403, 'No tienes permiso para modificar láminas de esta colección')
+    }
 
     const existing = await collectionRepository.findCollectedSticker(collectionId, stickerId)
     if (!existing) throw new HttpError(404, 'Lámina no encontrada en esta colección')
@@ -106,9 +152,13 @@ export const collectionService = {
     })
   },
 
-  async removeSticker(collectionId: number, stickerId: number) {
+  async removeSticker(collectionId: number, stickerId: number, currentUserId: number) {
     const collection = await collectionRepository.findById(collectionId)
     if (!collection) throw new HttpError(404, 'Colección no encontrada')
+
+    if (collection.userId !== currentUserId) {
+      throw new HttpError(403, 'No tienes permiso para eliminar láminas de esta colección')
+    }
 
     const existing = await collectionRepository.findCollectedSticker(collectionId, stickerId)
     if (!existing) throw new HttpError(404, 'Lámina no encontrada en esta colección')
@@ -116,15 +166,26 @@ export const collectionService = {
     return collectionRepository.removeCollectedSticker(collectionId, stickerId)
   },
 
-  async missingStickers(collectionId: number) {
+  async missingStickers(collectionId: number, currentUserId?: number) {
+    const collection = await collectionRepository.findById(collectionId)
+    if (!collection) throw new HttpError(404, 'Colección no encontrada')
+
+    if (!collection.isPublic && (!currentUserId || collection.userId !== currentUserId)) {
+      throw new HttpError(403, 'Esta colección es privada')
+    }
+
     const missing = await collectionRepository.findMissingStickers(collectionId)
     if (missing === null) throw new HttpError(404, 'Colección no encontrada')
     return missing
   },
 
-  async duplicatedStickers(collectionId: number) {
+  async duplicatedStickers(collectionId: number, currentUserId?: number) {
     const collection = await collectionRepository.findById(collectionId)
     if (!collection) throw new HttpError(404, 'Colección no encontrada')
+
+    if (!collection.isPublic && (!currentUserId || collection.userId !== currentUserId)) {
+      throw new HttpError(403, 'Esta colección es privada')
+    }
 
     const duplicates = await collectionRepository.findDuplicatedStickers(collectionId)
     return duplicates.map(({ sticker, quantity }) => ({

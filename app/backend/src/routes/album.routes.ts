@@ -1,5 +1,6 @@
 import { Router } from 'express'
 import { albumController } from '../controllers/album.controller'
+import { requireAuth } from '../middlewares/requireAuth'
 import { validate } from '../middlewares/validate'
 import { asyncHandler } from '../utils/asyncHandler'
 import {
@@ -16,15 +17,22 @@ albumRoutes.get(
   validate(albumIdParamsSchema, 'params'),
   asyncHandler(albumController.getById),
 )
-albumRoutes.post('/', validate(createAlbumSchema, 'body'), asyncHandler(albumController.create))
+albumRoutes.post(
+  '/',
+  requireAuth,
+  validate(createAlbumSchema, 'body'),
+  asyncHandler(albumController.create),
+)
 albumRoutes.put(
   '/:id',
+  requireAuth,
   validate(albumIdParamsSchema, 'params'),
   validate(updateAlbumSchema, 'body'),
   asyncHandler(albumController.update),
 )
 albumRoutes.delete(
   '/:id',
+  requireAuth,
   validate(albumIdParamsSchema, 'params'),
   asyncHandler(albumController.delete),
 )

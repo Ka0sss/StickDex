@@ -1,5 +1,6 @@
 import { Router } from 'express'
 import { stickerController } from '../controllers/sticker.controller'
+import { requireAuth } from '../middlewares/requireAuth'
 import { validate } from '../middlewares/validate'
 import { asyncHandler } from '../utils/asyncHandler'
 import {
@@ -20,24 +21,28 @@ stickerRoutes.get(
 )
 stickerRoutes.post(
   '/albums/:albumId/stickers',
+  requireAuth,
   validate(albumIdParamsSchema, 'params'),
   validate(createStickerSchema, 'body'),
   asyncHandler(stickerController.create),
 )
 stickerRoutes.post(
   '/albums/:albumId/stickers/bulk',
+  requireAuth,
   validate(albumIdParamsSchema, 'params'),
   validate(createStickersBulkSchema, 'body'),
   asyncHandler(stickerController.createBulk),
 )
 stickerRoutes.put(
   '/stickers/:id',
+  requireAuth,
   validate(stickerIdParamsSchema, 'params'),
   validate(updateStickerSchema, 'body'),
   asyncHandler(stickerController.update),
 )
 stickerRoutes.delete(
   '/stickers/:id',
+  requireAuth,
   validate(stickerIdParamsSchema, 'params'),
   asyncHandler(stickerController.delete),
 )

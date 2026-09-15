@@ -1,6 +1,5 @@
 import type { Request, Response } from 'express'
 import { collectionService } from '../services/collection.service'
-import { HttpError } from '../utils/httpError'
 import type {
   AddCollectedStickerInput,
   CreateCollectionInput,
@@ -12,36 +11,36 @@ export const collectionController = {
   async list(req: Request, res: Response) {
     const userId = req.query.userId ? Number(req.query.userId) : undefined
     const isPublic = req.query.isPublic !== undefined ? req.query.isPublic === 'true' : undefined
-    res.json(await collectionService.list({ userId, isPublic }))
+    res.json(await collectionService.list({ userId, isPublic }, req.session.userId))
   },
 
   async getById(req: Request, res: Response) {
-    res.json(await collectionService.getById(Number(req.params.id)))
+    res.json(await collectionService.getById(Number(req.params.id), req.session.userId))
   },
 
   async create(req: Request, res: Response) {
     const body = req.body as CreateCollectionInput
-    const userId = req.session.userId ?? body.userId
-
-    if (!userId) {
-      throw new HttpError(401, 'Debes iniciar sesión para crear una colección')
-    }
-
     const collection = await collectionService.create({
       name: body.name,
       albumId: body.albumId,
-      userId,
+      userId: req.session.userId!,
       isPublic: body.isPublic,
     })
     res.status(201).json(collection)
   },
 
   async update(req: Request, res: Response) {
-    res.json(await collectionService.update(Number(req.params.id), req.body as UpdateCollectionInput))
+    res.json(
+      await collectionService.update(
+        Number(req.params.id),
+        req.body as UpdateCollectionInput,
+        req.session.userId!,
+      ),
+    )
   },
 
   async delete(req: Request, res: Response) {
-    await collectionService.delete(Number(req.params.id))
+    await collectionService.delete(Number(req.params.id), req.session.userId!)
     res.status(200).json({ message: 'Colección eliminada' })
   },
 
@@ -49,6 +48,7 @@ export const collectionController = {
     const sticker = await collectionService.addSticker(
       Number(req.params.id),
       req.body as AddCollectedStickerInput,
+      req.session.userId!,
     )
     res.status(201).json(sticker)
   },
@@ -58,6 +58,7 @@ export const collectionController = {
       Number(req.params.id),
       Number(req.params.stickerId),
       req.body as UpdateCollectedStickerInput,
+      req.session.userId!,
     )
     res.json(sticker)
   },
@@ -66,15 +67,16 @@ export const collectionController = {
     await collectionService.removeSticker(
       Number(req.params.id),
       Number(req.params.stickerId),
+      req.session.userId!,
     )
     res.status(200).json({ message: 'Lámina eliminada de la colección' })
   },
 
   async missing(req: Request, res: Response) {
-    res.json(await collectionService.missingStickers(Number(req.params.id)))
+    res.json(await collectionService.missingStickers(Number(req.params.id), req.session.userId))
   },
 
   async duplicates(req: Request, res: Response) {
-    res.json(await collectionService.duplicatedStickers(Number(req.params.id)))
+    res.json(await collectionService.duplicatedStickers(Number(req.params.id), req.session.userId))
   },
 }

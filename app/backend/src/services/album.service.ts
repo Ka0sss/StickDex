@@ -8,6 +8,7 @@ type AlbumInput = {
   releaseDate?: Date
   stickerType?: string
   totalStickers: number
+  userId?: number
 }
 
 export const albumService = {
@@ -25,13 +26,19 @@ export const albumService = {
     return albumRepository.create(data)
   },
 
-  async update(id: number, data: Partial<AlbumInput>) {
-    await this.getById(id)
+  async update(id: number, data: Partial<AlbumInput>, currentUserId?: number) {
+    const album = await this.getById(id)
+    if (album.userId && currentUserId && album.userId !== currentUserId) {
+      throw new HttpError(403, 'No tienes permiso para modificar este álbum')
+    }
     return albumRepository.update(id, data)
   },
 
-  async delete(id: number) {
-    await this.getById(id)
+  async delete(id: number, currentUserId?: number) {
+    const album = await this.getById(id)
+    if (album.userId && currentUserId && album.userId !== currentUserId) {
+      throw new HttpError(403, 'No tienes permiso para eliminar este álbum')
+    }
     return albumRepository.delete(id)
   },
 }

@@ -11,22 +11,33 @@ export const stickerController = {
     const sticker = await stickerService.create(
       Number(req.params.albumId),
       req.body as CreateStickerInput,
+      req.session.userId,
     )
     res.status(201).json(sticker)
   },
 
   async createBulk(req: Request, res: Response) {
     const { stickers } = req.body as { stickers: CreateStickerInput[] }
-    const result = await stickerService.createBulk(Number(req.params.albumId), stickers)
+    const result = await stickerService.createBulk(
+      Number(req.params.albumId),
+      stickers,
+      req.session.userId,
+    )
     res.status(201).json(result)
   },
 
   async update(req: Request, res: Response) {
-    res.json(await stickerService.update(Number(req.params.id), req.body as UpdateStickerInput))
+    res.json(
+      await stickerService.update(
+        Number(req.params.id),
+        req.body as UpdateStickerInput,
+        req.session.userId,
+      ),
+    )
   },
 
   async delete(req: Request, res: Response) {
-    await stickerService.delete(Number(req.params.id))
+    await stickerService.delete(Number(req.params.id), req.session.userId)
     res.status(200).json({ message: 'Lámina eliminada' })
   },
 }

@@ -130,7 +130,7 @@ Reglas clave:
 
 - TypeScript en **strict mode**.
 - Wrapper `asyncHandler` para eliminar `try/catch` repetido.
-- Middleware central de errores con respuestas estandarizadas (`{ error, message, details? }`) y códigos de estado correctos (200, 201, 400, 401, 403, 404, 500).
+- Middleware central de errores con respuestas estandarizadas (`{ error, message, details? }`) y códigos de estado correctos (200, 201, 400, 401, 403, 404, 409, 500).
 - Validar variables de entorno con Zod al arrancar.
 - Hash de contraseñas con bcryptjs (nunca almacenar en claro).
 - Sesiones con `express-session`: cookie `httpOnly`, `sameSite`, secret en env.

@@ -53,7 +53,7 @@
 - Tipado TypeScript correcto y estricto.
 - Routes sin lógica de negocio ni Prisma.
 - Services con reglas de negocio.
-- Controladores responden con HTTP status codes correctos (200, 201, 400, 401, 403, 404, 500).
+- Controladores responden con HTTP status codes correctos (200, 201, 400, 401, 403, 404, 409, 500).
 - Rutas protegidas con sesión (express-session).
 - Autorización por propiedad implementada: un usuario solo edita/elimina sus propios álbumes, láminas y colecciones.
 - Visibilidad respetada: colecciones privadas solo visibles para su dueño; públicas para todos.

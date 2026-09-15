@@ -1,0 +1,16 @@
+services:
+  db:
+    image: mysql:8
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-root}
+      MYSQL_DATABASE: ${MYSQL_DATABASE:-stickdex}
+      MYSQL_USER: ${MYSQL_USER:-stickdex}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:-stickdex}
+    ports:
+      - "3306:3306"
+    volumes:
+      - db_data:/var/lib/mysql
+
+volumes:
+  db_data:

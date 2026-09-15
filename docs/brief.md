@@ -25,8 +25,8 @@ Es un proyecto **fullstack** cuyo código vive en el directorio `app/`, dividido
 |------|-------------|
 | Auth | Registro, login, logout, sesión persistente |
 | Álbumes | Crear, editar, eliminar, listar, detallar |
-| Láminas | Subir imagen + metadatos, editar, eliminar, listar por álbum |
-| Colecciones | Crear colección, añadir/quitar láminas, marcar repetidas, ver progreso |
+| Láminas | Subir imagen + metadatos, editar, eliminar, listar por álbum, carga masiva (listado) |
+| Colecciones | Crear colección, añadir/quitar láminas, marcar repetidas, ver progreso, reporte de faltantes y repetidas |
 | Perfil público | Ver colecciones de otros usuarios |
 
 ## 4. Stack tecnológico
@@ -153,10 +153,14 @@ model User {
 
 model Album {
   id            Int       @id @default(autoincrement())
-  title         String
+  name          String
   description   String?
+  imageUrl      String?   // portada
+  releaseDate   DateTime? // fecha de lanzamiento
+  stickerType   String?   // tipo de láminas del álbum
   totalStickers Int
   stickers      Sticker[]
+  collections   Collection[]
   createdAt     DateTime  @default(now())
 }
 
@@ -164,10 +168,12 @@ model Sticker {
   id        Int      @id @default(autoincrement())
   number    Int
   name      String
-  imageUrl  String
+  imageUrl  String?  // foto opcional
+  type      String?  // categoría de la lámina
   albumId   Int
-  album     Album    @relation(fields: [albumId], references: [id])
-  createdAt DateTime @default(now())
+  album             Album              @relation(fields: [albumId], references: [id], onDelete: Cascade)
+  collectedStickers CollectedSticker[]
+  createdAt         DateTime           @default(now())
 
   @@unique([albumId, number])
 }
@@ -177,9 +183,9 @@ model Collection {
   name      String
   isPublic  Boolean            @default(false)
   userId    Int
-  user      User               @relation(fields: [userId], references: [id])
+  user      User               @relation(fields: [userId], references: [id], onDelete: Cascade)
   albumId   Int
-  album     Album              @relation(fields: [albumId], references: [id])
+  album     Album              @relation(fields: [albumId], references: [id], onDelete: Cascade)
   stickers  CollectedSticker[]
   createdAt DateTime           @default(now())
 }
@@ -187,9 +193,9 @@ model Collection {
 model CollectedSticker {
   id           Int        @id @default(autoincrement())
   collectionId Int
-  collection   Collection @relation(fields: [collectionId], references: [id])
+  collection   Collection @relation(fields: [collectionId], references: [id], onDelete: Cascade)
   stickerId    Int
-  sticker      Sticker    @relation(fields: [stickerId], references: [id])
+  sticker      Sticker    @relation(fields: [stickerId], references: [id], onDelete: Cascade)
   quantity     Int        @default(1)
   isDuplicated Boolean    @default(false)
 
@@ -214,7 +220,41 @@ model CollectedSticker {
 - Se reutilizan para inferir tipos TypeScript (`z.infer`).
 - Env vars se validan al arranque; el servidor falla temprano si faltan.
 
-## 12. Routing (recomendación)
+## 12. Endpoints API REST
+
+Base: `/api`.
+
+### Álbumes
+
+| Método | Ruta | Descripción |
+|--------|------|-------------|
+| GET    | `/albums` | Listar álbumes |
+| GET    | `/albums/:id` | Detalle de un álbum |
+| POST   | `/albums` | Crear álbum |
+| PUT    | `/albums/:id` | Editar álbum |
+| DELETE | `/albums/:id` | Eliminar álbum |
+
+### Láminas
+
+| Método | Ruta | Descripción |
+|--------|------|-------------|
+| GET    | `/albums/:albumId/stickers` | Listar láminas de un álbum |
+| POST   | `/albums/:albumId/stickers` | Crear lámina (foto opcional) |
+| POST   | `/albums/:albumId/stickers/bulk` | Crear un listado de láminas |
+| PUT    | `/stickers/:id` | Editar lámina |
+| DELETE | `/stickers/:id` | Eliminar lámina |
+
+### Reportes de colección
+
+| Método | Ruta | Descripción |
+|--------|------|-------------|
+| GET    | `/collections/:id/missing` | Láminas faltantes del álbum |
+| GET    | `/collections/:id/duplicates` | Láminas repetidas, con cantidad por lámina |
+
+- **Faltantes**: láminas del álbum que no están en la colección.
+- **Repetidas**: láminas con más de una copia; la respuesta incluye la cantidad de repetidas por lámina.
+
+## 13. Routing (recomendación)
 
 **Sí, usar `react-router` (paquete `react-router-dom`)** para las rutas del frontend.
 
@@ -227,7 +267,7 @@ Razones:
 
 Alternativa considerada: **TanStack Router** (type-safe al 100%), pero añade complejidad innecesaria para este alcance. `react-router` es la opción aburrida y estable.
 
-## 13. Docker / Infraestructura
+## 14. Docker / Infraestructura
 
 `docker-compose.yml` en `app/` levanta MySQL:
 
@@ -258,11 +298,13 @@ npx prisma migrate dev        # aplicar migraciones (desde app/backend)
 npx prisma studio             # inspeccionar datos
 ```
 
-## 14. Definición de hecho (Definition of Done)
+## 15. Definición de hecho (Definition of Done)
 
 - [ ] Registro/login/logout funcionales con sesión persistente.
-- [ ] CRUD de álbumes y láminas con subida de imagen.
+- [ ] CRUD de álbumes y láminas, con foto opcional por lámina.
+- [ ] Carga masiva de láminas (listado).
 - [ ] Gestión de colecciones: añadir/quitar láminas, marcar repetidas.
+- [ ] Reporte de láminas faltantes y repetidas (con cantidad por lámina).
 - [ ] Perfil público con colecciones visibles para otros usuarios.
 - [ ] Entradas validadas con Zod y errores estandarizados.
 - [ ] Contraseñas hasheadas con bcryptjs.

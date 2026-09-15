@@ -147,6 +147,7 @@ model User {
   username    String       @unique
   email       String       @unique
   password    String       // hash bcryptjs
+  albums      Album[]
   collections Collection[]
   createdAt   DateTime     @default(now())
 }
@@ -159,6 +160,8 @@ model Album {
   releaseDate   DateTime? // fecha de lanzamiento
   stickerType   String?   // tipo de láminas del álbum
   totalStickers Int
+  userId        Int?
+  user          User?        @relation(fields: [userId], references: [id], onDelete: SetNull)
   stickers      Sticker[]
   collections   Collection[]
   createdAt     DateTime  @default(now())

@@ -19,6 +19,7 @@ export const albumRepository = {
     releaseDate?: Date
     stickerType?: string
     totalStickers: number
+    userId?: number
   }) {
     return prisma.album.create({ data })
   },

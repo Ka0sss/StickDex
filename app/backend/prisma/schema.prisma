@@ -12,33 +12,36 @@ model User {
   username    String       @unique
   email       String       @unique
   password    String
+  albums      Album[]
   collections Collection[]
   createdAt   DateTime     @default(now())
 }
 
 model Album {
-  id            Int       @id @default(autoincrement())
+  id            Int          @id @default(autoincrement())
   name          String
   description   String?
   imageUrl      String?   // portada
   releaseDate   DateTime? // fecha de lanzamiento
   stickerType   String?   // tipo de láminas del álbum
   totalStickers Int
+  userId        Int?
+  user          User?        @relation(fields: [userId], references: [id], onDelete: SetNull)
   stickers      Sticker[]
   collections   Collection[]
-  createdAt     DateTime  @default(now())
+  createdAt     DateTime     @default(now())
 }
 
 model Sticker {
-  id        Int      @id @default(autoincrement())
-  number    Int
-  name      String
-  imageUrl  String?  // foto opcional
-  type      String?  // categoría de la lámina
-  albumId   Int
-  album     Album              @relation(fields: [albumId], references: [id], onDelete: Cascade)
+  id                Int                @id @default(autoincrement())
+  number            Int
+  name              String
+  imageUrl          String?  // foto opcional
+  type              String?  // categoría de la lámina
+  albumId           Int
+  album             Album              @relation(fields: [albumId], references: [id], onDelete: Cascade)
   collectedStickers CollectedSticker[]
-  createdAt DateTime           @default(now())
+  createdAt         DateTime           @default(now())
 
   @@unique([albumId, number])
 }

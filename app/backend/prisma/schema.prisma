@@ -1,0 +1,68 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id          Int          @id @default(autoincrement())
+  username    String       @unique
+  email       String       @unique
+  password    String
+  collections Collection[]
+  createdAt   DateTime     @default(now())
+}
+
+model Album {
+  id            Int       @id @default(autoincrement())
+  name          String
+  description   String?
+  imageUrl      String?   // portada
+  releaseDate   DateTime? // fecha de lanzamiento
+  stickerType   String?   // tipo de láminas del álbum
+  totalStickers Int
+  stickers      Sticker[]
+  collections   Collection[]
+  createdAt     DateTime  @default(now())
+}
+
+model Sticker {
+  id        Int      @id @default(autoincrement())
+  number    Int
+  name      String
+  imageUrl  String?  // foto opcional
+  type      String?  // categoría de la lámina
+  albumId   Int
+  album     Album              @relation(fields: [albumId], references: [id], onDelete: Cascade)
+  collectedStickers CollectedSticker[]
+  createdAt DateTime           @default(now())
+
+  @@unique([albumId, number])
+}
+
+model Collection {
+  id        Int                @id @default(autoincrement())
+  name      String
+  isPublic  Boolean            @default(false)
+  userId    Int
+  user      User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  albumId   Int
+  album     Album              @relation(fields: [albumId], references: [id], onDelete: Cascade)
+  stickers  CollectedSticker[]
+  createdAt DateTime           @default(now())
+}
+
+model CollectedSticker {
+  id           Int        @id @default(autoincrement())
+  collectionId Int
+  collection   Collection @relation(fields: [collectionId], references: [id], onDelete: Cascade)
+  stickerId    Int
+  sticker      Sticker    @relation(fields: [stickerId], references: [id], onDelete: Cascade)
+  quantity     Int        @default(1)
+  isDuplicated Boolean    @default(false)
+
+  @@unique([collectionId, stickerId])
+}

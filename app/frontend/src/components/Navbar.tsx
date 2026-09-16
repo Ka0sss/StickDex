@@ -1,5 +1,5 @@
 import { Link, useLocation, useNavigate } from 'react-router-dom'
-import { useAuth } from '../context/AuthContext'
+import { useAuth } from '@/context/AuthContext'
 import { StickDexLogo } from './StickDexLogo'
 
 export function Navbar() {
@@ -14,6 +14,7 @@ export function Navbar() {
 
   const isAlbums = location.pathname.startsWith('/albums')
   const isCollections = location.pathname.startsWith('/collections')
+  const isProfile = location.pathname.startsWith('/profile')
 
   return (
     <nav className="sticky top-0 z-40 border-b border-binder-700/60 bg-binder-900/90 backdrop-blur-md shadow-lg shadow-black/40">
@@ -45,6 +46,18 @@ export function Navbar() {
             >
               Colecciones
             </Link>
+            {user && (
+              <Link
+                to="/profile"
+                className={`rounded-xl px-4 py-2 text-xs font-black uppercase tracking-wider transition-all duration-200 ${
+                  isProfile
+                    ? 'bg-indigo-600/20 text-amber-400 border border-indigo-500/40 shadow-sm shadow-indigo-500/10'
+                    : 'text-slate-400 hover:text-white hover:bg-binder-800/60'
+                }`}
+              >
+                Mi perfil
+              </Link>
+            )}
           </div>
         </div>
 

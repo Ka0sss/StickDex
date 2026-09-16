@@ -7,9 +7,13 @@ import type {
 import type {
   AddCollectedStickerInput,
   CreateCollectionInput,
+  ListCollectionsQuery,
   UpdateCollectedStickerInput,
   UpdateCollectionInput,
-} from '@/validations/collection.schema'
+} from '../validations/collection.schema'
+
+/** Filtro de listado más el usuario que consulta (para resolver visibilidad). */
+export type ListCollectionsInput = ListCollectionsQuery & { currentUserId?: number }
 
 /** Progreso de una colección: láminas únicas obtenidas frente al total del álbum. */
 export type CollectionProgress = {
@@ -35,11 +39,7 @@ export type DuplicatedStickerView = {
 }
 
 export interface ICollectionService {
-  list(query: {
-    userId?: number
-    isPublic?: boolean
-    currentUserId?: number
-  }): Promise<CollectionSummaryView[]>
+  list(query: ListCollectionsInput): Promise<CollectionSummaryView[]>
   /** Lanza 403 si la colección es privada y no pertenece al solicitante. */
   getById(id: number, currentUserId?: number): Promise<CollectionDetailView>
   create(data: CreateCollectionInput, userId: number): Promise<CollectionSummaryView>

@@ -1,6 +1,10 @@
 import type { Request, Response } from 'express'
 import type { IStickerService } from '@/interfaces/sticker.service.interface'
-import type { CreateStickerInput, UpdateStickerInput } from '@/validations/sticker.schema'
+import type {
+  CreateStickerInput,
+  CreateStickersBulkInput,
+  UpdateStickerInput,
+} from '@/validations/sticker.schema'
 import { asyncHandler } from '@/utils/asyncHandler'
 import { sessionUserId } from '@/utils/sessionUser'
 
@@ -21,7 +25,7 @@ export class StickerController {
   })
 
   createBulk = asyncHandler(async (req: Request, res: Response) => {
-    const { stickers } = req.body as { stickers: CreateStickerInput[] }
+    const { stickers } = req.body as CreateStickersBulkInput
     const result = await this.stickers.createBulk(
       Number(req.params.albumId),
       stickers,

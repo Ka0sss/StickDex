@@ -1,31 +1,7 @@
 import { describe, expect, it } from 'vitest'
-import { z } from 'zod'
 import '@/validations/errorMap'
+import { envSchema } from '@/validations/env.schema'
 import { failureOf, messagesAt } from './helpers/zod'
-
-/**
- * Espejo del esquema de `src/config/env.ts`.
- *
- * No se importa el módulo real porque al evaluarse ejecuta `process.exit(1)` si
- * `process.env` no es válido (y además carga `dotenv`). Este espejo debe
- * mantenerse sincronizado a mano con `src/config/env.ts`.
- */
-const envSchema = z.object({
-  DATABASE_URL: z
-    .string({ required_error: 'DATABASE_URL es obligatoria' })
-    .url({ message: 'DATABASE_URL debe ser una URL válida' })
-    .startsWith('mysql://', { message: 'DATABASE_URL debe apuntar a MySQL (mysql://...)' }),
-  SESSION_SECRET: z
-    .string({ required_error: 'SESSION_SECRET es obligatoria' })
-    .min(32, { message: 'SESSION_SECRET debe tener al menos 32 caracteres' }),
-  PORT: z.coerce
-    .number({ invalid_type_error: 'PORT debe ser numérico' })
-    .int({ message: 'PORT debe ser un puerto entero' })
-    .min(1, { message: 'PORT debe estar entre 1 y 65535' })
-    .max(65535, { message: 'PORT debe estar entre 1 y 65535' })
-    .default(3000),
-  NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
-})
 
 const BASE_ENV = {
   DATABASE_URL: 'mysql://stickdex:secreto@localhost:3306/stickdex',

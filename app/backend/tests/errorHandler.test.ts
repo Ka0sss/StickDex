@@ -1,10 +1,13 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { NextFunction, Request, Response } from 'express'
+import type { ZodTypeAny } from 'zod'
 import { Prisma } from '@prisma/client'
+import { translatePrismaError } from '@/config/prismaError'
 import { errorHandler } from '@/middlewares/error'
+import { validate, type ValidationSource } from '@/middlewares/validate'
 import { HttpError } from '@/utils/httpError'
 import { registerSchema } from '@/validations/auth.schema'
-import { failureOf } from './helpers/zod'
+import { uploadedImageSchema } from '@/validations/upload.schema'
 
 /** Doble mínimo de `res` que registra el status y el cuerpo enviados. */
 type ResponseDouble = {
@@ -60,57 +63,97 @@ describe('errorHandler con HttpError', () => {
   })
 })
 
-describe('errorHandler con ZodError', () => {
-  it('responde 400 con los issues de validación', () => {
-    const error = failureOf(
-      registerSchema.safeParse({ username: 'x', email: 'mal', password: 'corta' }),
+describe('validate + errorHandler', () => {
+  function runValidate(schema: ZodTypeAny, source: ValidationSource, req: Request) {
+    let forwarded: unknown = null
+    validate(schema, source)(
+      req,
+      {} as Response,
+      ((err?: unknown) => {
+        forwarded = err ?? null
+      }) as NextFunction,
     )
+    return forwarded
+  }
 
-    const response = handle(error)
+  it('convierte un body inválido en 400 con source, fieldErrors e issues', () => {
+    const req = { body: { username: 'x', email: 'mal', password: 'corta' } } as unknown as Request
+
+    const response = handle(runValidate(registerSchema, 'body', req))
 
     expect(response.status).toBe(400)
-    const body = response.body as {
-      error: string
-      message: string
-      details: { issues: { path: string; message: string }[] }
-    }
-    expect(body.error).toBe('validation_error')
-    expect(body.message).toBe('Entrada inválida')
-    expect(body.details.issues.length).toBeGreaterThan(0)
-    expect(body.details.issues.map((issue) => issue.path)).toEqual(
-      expect.arrayContaining(['username', 'email', 'password']),
+    expect(response.body).toMatchObject({
+      error: 'bad_request',
+      message: 'Entrada inválida',
+      details: {
+        source: 'body',
+        fieldErrors: {
+          username: expect.arrayContaining([expect.any(String)]),
+          email: expect.arrayContaining([expect.any(String)]),
+          password: expect.arrayContaining([expect.any(String)]),
+        },
+        issues: expect.arrayContaining([{ path: 'email', message: expect.any(String) }]),
+      },
+    })
+  })
+
+  it('reemplaza la fuente por el resultado del parseo (trim y normalización)', () => {
+    const req = {
+      body: { username: '  bob  ', email: ' BOB@mail.com ', password: 'secreto123' },
+    } as unknown as Request
+
+    expect(runValidate(registerSchema, 'body', req)).toBeNull()
+    expect(req.body).toEqual({ username: 'bob', email: 'bob@mail.com', password: 'secreto123' })
+  })
+
+  it('valida el archivo subido sin reemplazarlo (conserva filename y path)', () => {
+    const file = { mimetype: 'image/png', size: 12, filename: 'x.png', path: '/tmp/x.png' }
+    const req = { file } as unknown as Request
+
+    expect(runValidate(uploadedImageSchema, 'file', req)).toBeNull()
+    expect(req.file).toBe(file)
+  })
+
+  it('rechaza un archivo ausente o con MIME no permitido', () => {
+    const missing = handle(runValidate(uploadedImageSchema, 'file', {} as Request))
+    expect(missing.status).toBe(400)
+
+    const notAllowed = handle(
+      runValidate(uploadedImageSchema, 'file', {
+        file: { mimetype: 'text/html', size: 12, filename: 'x.html', path: '/tmp/x.html' },
+      } as unknown as Request),
     )
-    expect(body.details.issues.every((issue) => issue.message.length > 0)).toBe(true)
+    expect(notAllowed.status).toBe(400)
+    expect(notAllowed.body).toMatchObject({ details: { source: 'file' } })
   })
 })
 
-describe('errorHandler con errores de Prisma', () => {
-  it('traduce P2002 (restricción única) a 409 con el campo objetivo', () => {
-    const error = new Prisma.PrismaClientKnownRequestError(
-      'Unique constraint failed on the fields: (`albumId`,`number`)',
-      { code: 'P2002', clientVersion: '6.5.0', meta: { target: ['albumId', 'number'] } },
-    )
+describe('translatePrismaError', () => {
+  const knownError = (code: string) =>
+    new Prisma.PrismaClientKnownRequestError('fallo de restricción', {
+      code,
+      clientVersion: '6.5.0',
+    })
 
-    const response = handle(error)
+  it('traduce la restricción única (P2002) a 409', () => {
+    const response = handle(translatePrismaError(knownError('P2002')))
 
     expect(response.status).toBe(409)
     expect(response.body).toEqual({
       error: 'conflict',
       message: 'Ya existe un registro con esos datos',
-      details: { target: ['albumId', 'number'] },
     })
   })
 
-  it('traduce P2025 (registro inexistente) a 404', () => {
-    const error = new Prisma.PrismaClientKnownRequestError('Record to update not found.', {
-      code: 'P2025',
-      clientVersion: '6.5.0',
-    })
+  it('traduce P2003 a 409 y P2025 a 404', () => {
+    expect(handle(translatePrismaError(knownError('P2003'))).status).toBe(409)
+    expect(handle(translatePrismaError(knownError('P2025'))).status).toBe(404)
+  })
 
-    const response = handle(error)
+  it('deja pasar cualquier otro error sin tocarlo', () => {
+    const error = new Error('conexión caída')
 
-    expect(response.status).toBe(404)
-    expect(response.body).toEqual({ error: 'not_found', message: 'Recurso no encontrado' })
+    expect(translatePrismaError(error)).toBe(error)
   })
 })
 

@@ -12,7 +12,8 @@ import type {
   CollectionSummaryView,
   DuplicatedStickerView,
   ICollectionService,
-} from '@/interfaces/collection.service.interface'
+  ListCollectionsInput,
+} from '../interfaces/collection.service.interface'
 import type {
   AddCollectedStickerInput,
   CreateCollectionInput,
@@ -44,11 +45,7 @@ export class CollectionService implements ICollectionService {
     private readonly users: IUserRepository,
   ) {}
 
-  async list(query: {
-    userId?: number
-    isPublic?: boolean
-    currentUserId?: number
-  }): Promise<CollectionSummaryView[]> {
+  async list(query: ListCollectionsInput): Promise<CollectionSummaryView[]> {
     const filter = this.buildQueryFilter(query)
     if (!filter) return []
 
@@ -185,11 +182,7 @@ export class CollectionService implements ICollectionService {
     }))
   }
 
-  private buildQueryFilter(query: {
-    userId?: number
-    isPublic?: boolean
-    currentUserId?: number
-  }): CollectionQueryFilter | null {
+  private buildQueryFilter(query: ListCollectionsInput): CollectionQueryFilter | null {
     const isOwnerScope = query.userId !== undefined && query.currentUserId === query.userId
 
     // Solo el dueño puede listar sus colecciones privadas: para el resto no hay resultados.

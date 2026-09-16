@@ -34,4 +34,5 @@ export const createStickersBulkSchema = z.object({
 export const updateStickerSchema = nonEmptyUpdate(createStickerSchema.partial())
 
 export type CreateStickerInput = z.infer<typeof createStickerSchema>
+export type CreateStickersBulkInput = z.infer<typeof createStickersBulkSchema>
 export type UpdateStickerInput = z.infer<typeof updateStickerSchema>

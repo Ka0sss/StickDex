@@ -1,6 +1,7 @@
-import type { Request, Response } from 'express'
+import type { NextFunction, Request, Response } from 'express'
 import type { IAuthService } from '@/interfaces/auth.service.interface'
 import type { LoginInput, RegisterInput } from '@/validations/auth.schema'
+import { HttpError } from '@/utils/httpError'
 import { asyncHandler } from '@/utils/asyncHandler'
 import { sessionUserId } from '@/utils/sessionUser'
 
@@ -19,10 +20,11 @@ export class AuthController {
     res.json(user)
   })
 
-  logout = (req: Request, res: Response) => {
+  logout = (req: Request, res: Response, next: NextFunction) => {
     req.session.destroy((err) => {
       if (err) {
-        return res.status(500).json({ error: 'internal_error', message: 'Error al cerrar sesión' })
+        next(new HttpError(500, 'Error al cerrar sesión'))
+        return
       }
       res.status(200).json({ message: 'Sesión cerrada' })
     })

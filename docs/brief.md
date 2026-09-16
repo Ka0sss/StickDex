@@ -300,7 +300,8 @@ Alternativa considerada: **TanStack Router** (type-safe al 100%), pero añade co
 
 ## 14. Docker / Infraestructura
 
-`docker-compose.yml` en `app/` levanta MySQL:
+**Nota de implementación:** el `docker-compose.yml` real (`app/docker-compose.yml`) usa
+valores por defecto (`${VAR:-valor}`) para poder levantarse sin crear un `.env`:
 
 ```yaml
 services:
@@ -308,10 +309,10 @@ services:
     image: mysql:8
     restart: always
     environment:
-      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
-      MYSQL_DATABASE: ${MYSQL_DATABASE}
-      MYSQL_USER: ${MYSQL_USER}
-      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-root}
+      MYSQL_DATABASE: ${MYSQL_DATABASE:-stickdex}
+      MYSQL_USER: ${MYSQL_USER:-stickdex}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:-stickdex}
     ports:
       - "3306:3306"
     volumes:
@@ -357,13 +358,13 @@ El comando `npx prisma db seed` (o `npm run prisma:seed`) precarga datos para fa
 ## 16. Estado de la implementación
 
 Todo lo anterior está implementado y verificado (typecheck, lint, formato y 120 pruebas
-automatizadas en el backend, más pruebas de humo sobre la API y la interfaz reales).
+automatizadas en el backend, más pruebas de humo manuales sobre la API y la interfaz reales).
 Estas son las desviaciones conscientes respecto a lo descrito arriba, todas aditivas:
 
 | Punto | Decisión tomada |
 |-------|-----------------|
 | §4 Sesiones | Store de sesiones respaldado por Prisma (`Session`) en lugar del store en memoria por defecto. |
-| §5 Estructura | Se añaden `src/interfaces/` (contratos `I*Repository`/`I*Service`) y `tests/` en el backend, y `src/validations/` + `src/routes/RequireAuth.tsx` en el frontend. |
+| §5 Estructura | Se añaden `src/interfaces/` (contratos `I*Repository`/`I*Service`) y `tests/` en el backend, `src/types/express-session.d.ts` para la sesión tipada, y `src/validations/`, `src/routes/RequireAuth.tsx` y `src/context/AuthContext.tsx` en el frontend. |
 | §6/§7 SOLID | Interfaz e implementación separadas, con inyección por constructor y una única raíz de composición en `src/config/container.ts`. |
 | §9 Modelo | Se añade el modelo `Session` (ver nota en §9). |
 | §8 Errores | Además de los códigos pedidos se usa `413` cuando el cuerpo JSON excede el límite; el archivo de más de 5 MB responde `400` (`file_too_large`). |

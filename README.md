@@ -13,7 +13,7 @@ Sistema web fullstack para coleccionistas de láminas de álbumes. Permite crear
 - **Validación de Entradas:** Zod (body, query y params; mensajes en español)
 - **Seguridad & Sesiones:** `bcryptjs` (hash de contraseñas), `express-session` (cookies `httpOnly` + `sameSite`, store persistente en MySQL, sin JWT)
 - **Carga de Archivos:** Multer (validación de MIME, extensión derivada del MIME y límite de tamaño a 5 MB)
-- **Calidad de Código:** ESLint 9 + Prettier 3 y alias de importación `@/` → `src/`
+- **Calidad de Código:** ESLint 10 + Prettier 3 y alias de importación `@/` → `src/`
 - **Pruebas:** Vitest (servicios y validaciones con dobles en memoria, sin base de datos)
 
 ### Frontend (`app/frontend`)
@@ -22,7 +22,7 @@ Sistema web fullstack para coleccionistas de láminas de álbumes. Permite crear
 - **Validación de Formularios:** Zod (espejo de los esquemas del backend)
 - **Build Tool:** Vite
 - **Enrutamiento:** `react-router` (v7)
-- **Calidad de Código:** ESLint 9 + Prettier 3 y alias de importación `@/` → `src/`
+- **Calidad de Código:** ESLint 10 + Prettier 3 y alias de importación `@/` → `src/`
 
 ### Infraestructura
 - **Contenedores:** Docker & Docker Compose para el servicio de MySQL 8.
@@ -45,8 +45,8 @@ HTTP Response ◄─────────────────────
 - **Interfaces + inyección por constructor:** `src/interfaces/` declara `I*Repository` / `I*Service`; las implementaciones (`Prisma*Repository`, `*Service`) se eligen en la raíz de composición `src/config/container.ts` y se inyectan por constructor (Principio de Inversión de Dependencias).
 - **SOLID:** Responsabilidad Única (SRP), Inversión de Dependencias (DIP) y segregación de interfaces (una interfaz por agregado).
 - **Errores estandarizados:** todas las respuestas de error usan `{ error, message, details? }` con el status correcto (400, 401, 403, 404, 409, 413, 500); las rutas inexistentes también responden JSON.
-  - `details` de validación: `{ source: 'body' | 'query' | 'params', fieldErrors, issues: [{ path, message }] }`.
-  - Los errores de Prisma se traducen: `P2002` → 409 (dato duplicado), `P2025` → 404.
+  - `details` de validación: `{ source: 'body' | 'query' | 'params' | 'file', fieldErrors, issues: [{ path, message }] }`.
+  - Los errores de Prisma se traducen: `P2002` → 409 (dato duplicado), `P2003` → 409 (relación violada), `P2025` → 404.
 - **Sesiones persistentes:** `express-session` guarda la sesión en la tabla `Session` de MySQL (modelo Prisma), por lo que sobrevive a los reinicios del servidor; cookie `httpOnly`, `sameSite=lax`, `maxAge` 7 días.
 - **Seguridad:**
   - Rutas de mutación protegidas con middleware `requireAuth`.
@@ -81,6 +81,7 @@ StickDex/
 │   │   │   ├── services/          # Lógica de dominio y reglas de negocio
 │   │   │   ├── utils/             # Helpers (asyncHandler, HttpError, sessionUserId)
 │   │   │   ├── validations/       # Esquemas Zod y mensajes de error en español
+│   │   │   ├── types/             # Tipos ambientales (sesión de express-session)
 │   │   │   ├── app.ts             # Configuración de Express y archivos estáticos
 │   │   │   └── server.ts          # Arranque del servidor HTTP
 │   │   ├── tests/                 # Pruebas Vitest con dobles en memoria
@@ -91,9 +92,11 @@ StickDex/
 │       │   ├── context/           # AuthContext (gestión de sesión de usuario)
 │       │   ├── pages/             # Vistas (Login, Register, Albums, Collections, Profile, UserProfile)
 │       │   ├── routes/            # Configuración de react-router y RequireAuth
+│       │   ├── hooks/             # Reservado para hooks personalizados
 │       │   ├── services/          # Cliente HTTP API con credenciales
 │       │   ├── types/             # Interfaces TypeScript compartidas
 │       │   └── validations/       # Esquemas Zod espejo de los del backend
+│       ├── src/App.tsx, main.tsx, index.css  # Composición, montaje y estilos globales
 │       ├── tailwind.config.js
 │       └── vite.config.ts         # Configuración Vite con proxy hacia /api
 ```
@@ -255,12 +258,13 @@ Todas las respuestas de error siguen el mismo contrato:
 }
 ```
 
-Códigos usados: `400` validación/JSON malformado, `401` sin sesión o credenciales inválidas, `403` recurso ajeno o colección privada, `404` recurso o ruta inexistente, `409` dato duplicado, `413` cuerpo demasiado grande, `500` error interno.
+Códigos usados: `400` validación, JSON malformado, archivo demasiado grande (`file_too_large`) o subida rechazada (`upload_error`); `401` sin sesión o credenciales inválidas; `403` recurso ajeno o colección privada; `404` recurso o ruta inexistente; `409` dato duplicado; `413` cuerpo de la petición demasiado grande (`payload_too_large`); `500` error interno.
 
 ## 🧭 Rutas del frontend
 
 | Ruta | Acceso | Vista |
 |---|---|---|
+| `/` y `*` | público | Redirigen a `/albums` |
 | `/login`, `/register` | público | Autenticación |
 | `/albums`, `/albums/:id` | público | Catálogo de álbumes y detalle con sus láminas |
 | `/collections`, `/collections/:id` | público (detalle privado solo para su dueño) | Colecciones, progreso, faltantes y repetidas |
@@ -293,4 +297,4 @@ Las acciones de escritura (crear/editar/eliminar) solo se muestran al dueño del
 
 - Backend: `npm run typecheck`, `npm run lint`, `npm run format:check` y `npm test` (120 pruebas, sin base de datos).
 - Frontend: `npm run typecheck`, `npm run lint` y `npm run format:check`.
-- Pruebas de humo sobre la aplicación real: 48 comprobaciones contra la API (login, autorización por propiedad, visibilidad, reportes, conflictos 409, subidas) y recorrido de la interfaz en un navegador (login/logout, rutas protegidas, perfil público, edición de álbum y lámina, validación inline, progreso y repetidas).
+- Pruebas de humo ejecutadas manualmente sobre la aplicación real (no se versiona el script): 48 comprobaciones contra la API (login, autorización por propiedad, visibilidad, reportes, conflictos 409, subidas) y recorrido de la interfaz en un navegador (login/logout, rutas protegidas, perfil público, edición de álbum y lámina, validación inline, progreso y repetidas).

@@ -5,7 +5,7 @@ export interface ApiIssue {
 
 /** Detalle de error devuelto por el backend: `{ error, message, details }`. */
 export interface ApiErrorDetails {
-  source?: 'body' | 'query' | 'params'
+  source?: 'body' | 'query' | 'params' | 'file'
   fieldErrors?: Record<string, string[]>
   issues?: ApiIssue[]
   [key: string]: unknown

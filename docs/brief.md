@@ -206,10 +206,14 @@ model CollectedSticker {
 }
 ```
 
+> **Nota de implementación:** además de estos cinco modelos, el esquema real
+> (`app/backend/prisma/schema.prisma`) incluye `Session`, que persiste las sesiones de
+> `express-session` en MySQL para que sobrevivan a los reinicios del servidor.
+
 ## 10. Seguridad
 
 - **Autenticación**: email + contraseña; contraseña hasheada con `bcryptjs`.
-- **Sesión**: `express-session` con cookie firmada `httpOnly` y `sameSite=lax`.
+- **Sesión**: `express-session` con cookie firmada `httpOnly` y `sameSite=lax`, guardada en un store persistente (tabla `Session` de MySQL) para no perderla al reiniciar el servidor.
 - **Autorización**: middleware que verifica sesión para rutas protegidas.
 - **Propiedad de recursos**: un usuario solo edita sus propios álbumes/colecciones.
 - **Visibilidad**: `isPublic` controla qué colecciones ven otros usuarios.
@@ -338,14 +342,31 @@ El comando `npx prisma db seed` (o `npm run prisma:seed`) precarga datos para fa
 
 ## 15. Definición de hecho (Definition of Done)
 
-- [ ] Registro/login/logout funcionales con sesión persistente.
-- [ ] CRUD de álbumes y láminas, con foto opcional por lámina.
-- [ ] Carga masiva de láminas (listado).
-- [ ] Gestión de colecciones: añadir/quitar láminas, marcar repetidas.
-- [ ] Reporte de láminas faltantes y repetidas (con cantidad por lámina).
-- [ ] Perfil público con colecciones visibles para otros usuarios.
-- [ ] Entradas validadas con Zod y errores estandarizados.
-- [ ] Contraseñas hasheadas con bcryptjs.
-- [ ] MySQL levantado vía Docker Compose y accesible desde Prisma.
-- [ ] Código separado por capas (controller/service/repository) siguiendo SOLID.
-- [ ] TypeScript en strict mode sin errores.
+- [x] Registro/login/logout funcionales con sesión persistente.
+- [x] CRUD de álbumes y láminas, con foto opcional por lámina.
+- [x] Carga masiva de láminas (listado).
+- [x] Gestión de colecciones: añadir/quitar láminas, marcar repetidas.
+- [x] Reporte de láminas faltantes y repetidas (con cantidad por lámina).
+- [x] Perfil público con colecciones visibles para otros usuarios.
+- [x] Entradas validadas con Zod y errores estandarizados.
+- [x] Contraseñas hasheadas con bcryptjs.
+- [x] MySQL levantado vía Docker Compose y accesible desde Prisma.
+- [x] Código separado por capas (controller/service/repository) siguiendo SOLID.
+- [x] TypeScript en strict mode sin errores.
+
+## 16. Estado de la implementación
+
+Todo lo anterior está implementado y verificado (typecheck, lint, formato y 120 pruebas
+automatizadas en el backend, más pruebas de humo sobre la API y la interfaz reales).
+Estas son las desviaciones conscientes respecto a lo descrito arriba, todas aditivas:
+
+| Punto | Decisión tomada |
+|-------|-----------------|
+| §4 Sesiones | Store de sesiones respaldado por Prisma (`Session`) en lugar del store en memoria por defecto. |
+| §5 Estructura | Se añaden `src/interfaces/` (contratos `I*Repository`/`I*Service`) y `tests/` en el backend, y `src/validations/` + `src/routes/RequireAuth.tsx` en el frontend. |
+| §6/§7 SOLID | Interfaz e implementación separadas, con inyección por constructor y una única raíz de composición en `src/config/container.ts`. |
+| §9 Modelo | Se añade el modelo `Session` (ver nota en §9). |
+| §8 Errores | Además de los códigos pedidos se usa `413` cuando el cuerpo JSON excede el límite; el archivo de más de 5 MB responde `400` (`file_too_large`). |
+| §12 Endpoints | Los mismos 25 endpoints del §12, sin añadidos ni eliminados. |
+| §14 Docker | El `docker-compose.yml` usa valores por defecto (`${VAR:-valor}`) para poder levantarse sin crear un `.env`. |
+| Frontend | Se añade Zod en cliente (espejo de los esquemas del servidor) con validación inline, y las vistas de edición y de perfil público que faltaban.

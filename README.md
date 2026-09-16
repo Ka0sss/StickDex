@@ -122,6 +122,8 @@ npm install
 # Aplicar las migraciones de Prisma
 npx prisma migrate dev
 
+# Cargar datos de prueba (seed de usuarios, álbum y colección)
+npm run prisma:seed
 # Iniciar en modo desarrollo
 npm run dev
 ```
@@ -143,6 +145,32 @@ npm run dev
 ```
 
 La aplicación web estará disponible en `http://localhost:5173`.
+
+---
+
+## 👥 Datos de Prueba (Seed)
+
+Para probar la aplicación inmediatamente sin tener que registrarse o crear datos manualmente, ejecuta:
+
+```bash
+cd app/backend
+npm run prisma:seed
+```
+
+### Credenciales de acceso
+
+| Usuario | Email | Contraseña | Descripción |
+|---|---|---|---|
+| `coleccionista1` | `cole1@test.com` | `password123` | Creador del álbum "Mundial 2026" y dueño de colección con progreso (50%) |
+| `coleccionista2` | `cole2@test.com` | `password123` | Usuario alternativo para probar permisos 403 y visibilidad comunitaria |
+
+### Datos precargados en la BD
+
+- **Álbum:** "Mundial 2026" con 10 láminas creadas (Escudo FIFA, Messi, Mbappé, Haaland, Bellingham, Yamal, Trofeo, etc.).
+- **Colección:** "Mi Álbum del Mundial" para `coleccionista1` con:
+  - **Progreso:** 50% (5 láminas de 10).
+  - **Láminas repetidas:** Lionel Messi (x2 copias) y Erling Haaland (x3 copias).
+  - **Láminas faltantes:** Vinícius, Yamal, Martínez, Courtois y Trofeo.
 
 ---
 

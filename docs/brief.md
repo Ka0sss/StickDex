@@ -323,7 +323,18 @@ Comandos:
 docker compose up -d          # levantar MySQL
 npx prisma migrate dev        # aplicar migraciones (desde app/backend)
 npx prisma studio             # inspeccionar datos
+npx prisma db seed            # cargar usuarios y datos de muestra (seed)
 ```
+
+### Datos de prueba (Seed)
+
+El comando `npx prisma db seed` (o `npm run prisma:seed`) precarga datos para facilitar pruebas inmediatas:
+
+| Entidad | Datos generados |
+|---|---|
+| **Usuarios** | `cole1@test.com` (usuario: `coleccionista1`, pass: `password123`)<br>`cole2@test.com` (usuario: `coleccionista2`, pass: `password123`) |
+| **Álbum** | "Mundial 2026" (10 láminas con número, nombre y tipo) |
+| **Colección** | "Mi Álbum del Mundial" para `coleccionista1` con 50% de progreso (5 láminas pegadas), 2 repetidas (Messi x2, Haaland x3) y 5 faltantes |
 
 ## 15. Definición de hecho (Definition of Done)
 

@@ -1,55 +1,55 @@
 import { Router } from 'express'
-import { collectionController } from '../controllers/collection.controller'
-import { requireAuth } from '../middlewares/requireAuth'
-import { validate } from '../middlewares/validate'
-import { asyncHandler } from '../utils/asyncHandler'
+import { collectionController } from '@/config/container'
+import { requireAuth } from '@/middlewares/requireAuth'
+import { validate } from '@/middlewares/validate'
 import {
   addCollectedStickerSchema,
   collectionIdParamsSchema,
   collectionStickerParamsSchema,
   createCollectionSchema,
+  listCollectionsQuerySchema,
   updateCollectedStickerSchema,
   updateCollectionSchema,
-} from '../validations/collection.schema'
+} from '@/validations/collection.schema'
 
 export const collectionRoutes = Router()
 
-collectionRoutes.get('/', asyncHandler(collectionController.list))
+collectionRoutes.get('/', validate(listCollectionsQuerySchema, 'query'), collectionController.list)
 collectionRoutes.post(
   '/',
   requireAuth,
   validate(createCollectionSchema, 'body'),
-  asyncHandler(collectionController.create),
+  collectionController.create,
 )
 
 collectionRoutes.get(
   '/:id/missing',
   validate(collectionIdParamsSchema, 'params'),
-  asyncHandler(collectionController.missing),
+  collectionController.missing,
 )
 collectionRoutes.get(
   '/:id/duplicates',
   validate(collectionIdParamsSchema, 'params'),
-  asyncHandler(collectionController.duplicates),
+  collectionController.duplicates,
 )
 
 collectionRoutes.get(
   '/:id',
   validate(collectionIdParamsSchema, 'params'),
-  asyncHandler(collectionController.getById),
+  collectionController.getById,
 )
 collectionRoutes.put(
   '/:id',
   requireAuth,
   validate(collectionIdParamsSchema, 'params'),
   validate(updateCollectionSchema, 'body'),
-  asyncHandler(collectionController.update),
+  collectionController.update,
 )
 collectionRoutes.delete(
   '/:id',
   requireAuth,
   validate(collectionIdParamsSchema, 'params'),
-  asyncHandler(collectionController.delete),
+  collectionController.delete,
 )
 
 collectionRoutes.post(
@@ -57,18 +57,18 @@ collectionRoutes.post(
   requireAuth,
   validate(collectionIdParamsSchema, 'params'),
   validate(addCollectedStickerSchema, 'body'),
-  asyncHandler(collectionController.addSticker),
+  collectionController.addSticker,
 )
 collectionRoutes.put(
   '/:id/stickers/:stickerId',
   requireAuth,
   validate(collectionStickerParamsSchema, 'params'),
   validate(updateCollectedStickerSchema, 'body'),
-  asyncHandler(collectionController.updateSticker),
+  collectionController.updateSticker,
 )
 collectionRoutes.delete(
   '/:id/stickers/:stickerId',
   requireAuth,
   validate(collectionStickerParamsSchema, 'params'),
-  asyncHandler(collectionController.removeSticker),
+  collectionController.removeSticker,
 )

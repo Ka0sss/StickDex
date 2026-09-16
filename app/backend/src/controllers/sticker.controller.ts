@@ -1,43 +1,46 @@
 import type { Request, Response } from 'express'
-import { stickerService } from '../services/sticker.service'
-import type { CreateStickerInput, UpdateStickerInput } from '../validations/sticker.schema'
+import type { IStickerService } from '@/interfaces/sticker.service.interface'
+import type { CreateStickerInput, UpdateStickerInput } from '@/validations/sticker.schema'
+import { asyncHandler } from '@/utils/asyncHandler'
+import { sessionUserId } from '@/utils/sessionUser'
 
-export const stickerController = {
-  async listByAlbum(req: Request, res: Response) {
-    res.json(await stickerService.listByAlbum(Number(req.params.albumId)))
-  },
+export class StickerController {
+  constructor(private readonly stickers: IStickerService) {}
 
-  async create(req: Request, res: Response) {
-    const sticker = await stickerService.create(
+  listByAlbum = asyncHandler(async (req: Request, res: Response) => {
+    res.json(await this.stickers.listByAlbum(Number(req.params.albumId)))
+  })
+
+  create = asyncHandler(async (req: Request, res: Response) => {
+    const sticker = await this.stickers.create(
       Number(req.params.albumId),
       req.body as CreateStickerInput,
-      req.session.userId,
+      sessionUserId(req),
     )
     res.status(201).json(sticker)
-  },
+  })
 
-  async createBulk(req: Request, res: Response) {
+  createBulk = asyncHandler(async (req: Request, res: Response) => {
     const { stickers } = req.body as { stickers: CreateStickerInput[] }
-    const result = await stickerService.createBulk(
+    const result = await this.stickers.createBulk(
       Number(req.params.albumId),
       stickers,
-      req.session.userId,
+      sessionUserId(req),
     )
     res.status(201).json(result)
-  },
+  })
 
-  async update(req: Request, res: Response) {
-    res.json(
-      await stickerService.update(
-        Number(req.params.id),
-        req.body as UpdateStickerInput,
-        req.session.userId,
-      ),
+  update = asyncHandler(async (req: Request, res: Response) => {
+    const sticker = await this.stickers.update(
+      Number(req.params.id),
+      req.body as UpdateStickerInput,
+      sessionUserId(req),
     )
-  },
+    res.json(sticker)
+  })
 
-  async delete(req: Request, res: Response) {
-    await stickerService.delete(Number(req.params.id), req.session.userId)
+  delete = asyncHandler(async (req: Request, res: Response) => {
+    await this.stickers.delete(Number(req.params.id), sessionUserId(req))
     res.status(200).json({ message: 'Lámina eliminada' })
-  },
+  })
 }

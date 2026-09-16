@@ -1,8 +1,9 @@
 import path from 'path'
 import express from 'express'
-import { sessionMiddleware } from './config/session'
-import { errorHandler } from './middlewares/error'
-import { apiRouter } from './routes'
+import { sessionMiddleware } from '@/config/session'
+import { errorHandler } from '@/middlewares/error'
+import { notFoundHandler } from '@/middlewares/notFound'
+import { apiRouter } from '@/routes'
 
 export const app = express()
 
@@ -14,4 +15,5 @@ app.use('/uploads', express.static(path.join(process.cwd(), 'uploads')))
 
 app.use('/api', apiRouter)
 
+app.use(notFoundHandler)
 app.use(errorHandler)

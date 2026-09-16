@@ -69,3 +69,12 @@ model CollectedSticker {
 
   @@unique([collectionId, stickerId])
 }
+
+/// Sesiones de express-session: permiten reiniciar el servidor sin perder sesiones.
+model Session {
+  sid       String   @id @db.VarChar(128)
+  data      String   @db.Text
+  expiresAt DateTime
+
+  @@index([expiresAt])
+}

@@ -1,19 +1,29 @@
 import { z } from 'zod'
+import {
+  idParam,
+  imageUrlField,
+  nonEmptyUpdate,
+  nullableDate,
+  optionalText,
+  positiveInt,
+  requiredText,
+} from './common'
 
-export const albumIdParamsSchema = z.object({
-  id: z.coerce.number().int().positive(),
+/** Parámetro :id de las rutas /albums/:id */
+export const albumParamsSchema = z.object({
+  id: idParam,
 })
 
 export const createAlbumSchema = z.object({
-  name: z.string().min(1).max(100),
-  description: z.string().max(500).optional(),
-  imageUrl: z.string().max(500).optional(),
-  releaseDate: z.coerce.date().optional(),
-  stickerType: z.string().max(50).optional(),
-  totalStickers: z.number().int().positive(),
+  name: requiredText(100),
+  description: optionalText(500),
+  imageUrl: imageUrlField.optional(),
+  releaseDate: nullableDate.optional(),
+  stickerType: optionalText(50),
+  totalStickers: positiveInt,
 })
 
-export const updateAlbumSchema = createAlbumSchema.partial()
+export const updateAlbumSchema = nonEmptyUpdate(createAlbumSchema.partial())
 
 export type CreateAlbumInput = z.infer<typeof createAlbumSchema>
 export type UpdateAlbumInput = z.infer<typeof updateAlbumSchema>

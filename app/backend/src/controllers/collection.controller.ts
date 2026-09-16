@@ -1,82 +1,88 @@
 import type { Request, Response } from 'express'
-import { collectionService } from '../services/collection.service'
+import type { ICollectionService } from '@/interfaces/collection.service.interface'
 import type {
   AddCollectedStickerInput,
   CreateCollectionInput,
+  ListCollectionsQuery,
   UpdateCollectedStickerInput,
   UpdateCollectionInput,
-} from '../validations/collection.schema'
+} from '@/validations/collection.schema'
+import { asyncHandler } from '@/utils/asyncHandler'
+import { sessionUserId } from '@/utils/sessionUser'
 
-export const collectionController = {
-  async list(req: Request, res: Response) {
-    const userId = req.query.userId ? Number(req.query.userId) : undefined
-    const isPublic = req.query.isPublic !== undefined ? req.query.isPublic === 'true' : undefined
-    res.json(await collectionService.list({ userId, isPublic }, req.session.userId))
-  },
+export class CollectionController {
+  constructor(private readonly collections: ICollectionService) {}
 
-  async getById(req: Request, res: Response) {
-    res.json(await collectionService.getById(Number(req.params.id), req.session.userId))
-  },
-
-  async create(req: Request, res: Response) {
-    const body = req.body as CreateCollectionInput
-    const collection = await collectionService.create({
-      name: body.name,
-      albumId: body.albumId,
-      userId: req.session.userId!,
-      isPublic: body.isPublic,
-    })
-    res.status(201).json(collection)
-  },
-
-  async update(req: Request, res: Response) {
+  list = asyncHandler(async (req: Request, res: Response) => {
+    const query = req.query as unknown as ListCollectionsQuery
     res.json(
-      await collectionService.update(
-        Number(req.params.id),
-        req.body as UpdateCollectionInput,
-        req.session.userId!,
-      ),
+      await this.collections.list({
+        userId: query.userId,
+        isPublic: query.isPublic,
+        currentUserId: req.session.userId,
+      }),
     )
-  },
+  })
 
-  async delete(req: Request, res: Response) {
-    await collectionService.delete(Number(req.params.id), req.session.userId!)
+  getById = asyncHandler(async (req: Request, res: Response) => {
+    res.json(await this.collections.getById(Number(req.params.id), req.session.userId))
+  })
+
+  create = asyncHandler(async (req: Request, res: Response) => {
+    const collection = await this.collections.create(
+      req.body as CreateCollectionInput,
+      sessionUserId(req),
+    )
+    res.status(201).json(collection)
+  })
+
+  update = asyncHandler(async (req: Request, res: Response) => {
+    const collection = await this.collections.update(
+      Number(req.params.id),
+      req.body as UpdateCollectionInput,
+      sessionUserId(req),
+    )
+    res.json(collection)
+  })
+
+  delete = asyncHandler(async (req: Request, res: Response) => {
+    await this.collections.delete(Number(req.params.id), sessionUserId(req))
     res.status(200).json({ message: 'Colección eliminada' })
-  },
+  })
 
-  async addSticker(req: Request, res: Response) {
-    const sticker = await collectionService.addSticker(
+  addSticker = asyncHandler(async (req: Request, res: Response) => {
+    const sticker = await this.collections.addSticker(
       Number(req.params.id),
       req.body as AddCollectedStickerInput,
-      req.session.userId!,
+      sessionUserId(req),
     )
     res.status(201).json(sticker)
-  },
+  })
 
-  async updateSticker(req: Request, res: Response) {
-    const sticker = await collectionService.updateSticker(
+  updateSticker = asyncHandler(async (req: Request, res: Response) => {
+    const sticker = await this.collections.updateSticker(
       Number(req.params.id),
       Number(req.params.stickerId),
       req.body as UpdateCollectedStickerInput,
-      req.session.userId!,
+      sessionUserId(req),
     )
     res.json(sticker)
-  },
+  })
 
-  async removeSticker(req: Request, res: Response) {
-    await collectionService.removeSticker(
+  removeSticker = asyncHandler(async (req: Request, res: Response) => {
+    await this.collections.removeSticker(
       Number(req.params.id),
       Number(req.params.stickerId),
-      req.session.userId!,
+      sessionUserId(req),
     )
     res.status(200).json({ message: 'Lámina eliminada de la colección' })
-  },
+  })
 
-  async missing(req: Request, res: Response) {
-    res.json(await collectionService.missingStickers(Number(req.params.id), req.session.userId))
-  },
+  missing = asyncHandler(async (req: Request, res: Response) => {
+    res.json(await this.collections.missingStickers(Number(req.params.id), req.session.userId))
+  })
 
-  async duplicates(req: Request, res: Response) {
-    res.json(await collectionService.duplicatedStickers(Number(req.params.id), req.session.userId))
-  },
+  duplicates = asyncHandler(async (req: Request, res: Response) => {
+    res.json(await this.collections.duplicatedStickers(Number(req.params.id), req.session.userId))
+  })
 }

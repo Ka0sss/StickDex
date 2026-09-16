@@ -69,16 +69,106 @@ function ensureSampleImages(uploadDir: string) {
 
   // Láminas Coleccionables estilo Panini / Topps (360x500 con diseño impactante y legible)
   const stickerData = [
-    { n: 1, name: 'ESCUDO FIFA', role: 'BRILLANTE', team: 'FIFA OFFICIAL', col1: '#1e3a8a', col2: '#3b82f6', icon: '🛡️', bgAccent: '#60a5fa' },
-    { n: 2, name: 'LIONEL MESSI', role: 'CAPITÁN', team: 'ARGENTINA #10', col1: '#0284c7', col2: '#38bdf8', icon: '👑', bgAccent: '#7dd3fc' },
-    { n: 3, name: 'KYLIAN MBAPPÉ', role: 'DELANTERO', team: 'FRANCE #10', col1: '#1d4ed8', col2: '#60a5fa', icon: '⚡', bgAccent: '#93c5fd' },
-    { n: 4, name: 'ERLING HAALAND', role: 'DELANTERO', team: 'NORWAY #9', col1: '#0369a1', col2: '#0284c7', icon: '🤖', bgAccent: '#38bdf8' },
-    { n: 5, name: 'JUDE BELLINGHAM', role: 'MEDIOCAMPO', team: 'ENGLAND #10', col1: '#374151', col2: '#6b7280', icon: '⭐', bgAccent: '#9ca3af' },
-    { n: 6, name: 'VINÍCIUS JÚNIOR', role: 'EXTREMO', team: 'BRASIL #7', col1: '#ca8a04', col2: '#eab308', icon: '🔥', bgAccent: '#fde047' },
-    { n: 7, name: 'LAMINE YAMAL', role: 'PROMESA', team: 'ESPAÑA #19', col1: '#b91c1c', col2: '#ef4444', icon: '💎', bgAccent: '#f87171' },
-    { n: 8, name: 'DIBU MARTÍNEZ', role: 'PORTERO', team: 'ARGENTINA #23', col1: '#047857', col2: '#10b981', icon: '🧤', bgAccent: '#34d399' },
-    { n: 9, name: 'THIBAUT COURTOIS', role: 'PORTERO', team: 'BELGIUM #1', col1: '#0f766e', col2: '#14b8a6', icon: '🧱', bgAccent: '#2dd4bf' },
-    { n: 10, name: 'TROFEO MUNDIAL', role: 'EDICIÓN ORO', team: 'WORLD CHAMPION', col1: '#b45309', col2: '#f59e0b', icon: '🏆', bgAccent: '#fde68a' },
+    {
+      n: 1,
+      name: 'ESCUDO FIFA',
+      role: 'BRILLANTE',
+      team: 'FIFA OFFICIAL',
+      col1: '#1e3a8a',
+      col2: '#3b82f6',
+      icon: '🛡️',
+      bgAccent: '#60a5fa',
+    },
+    {
+      n: 2,
+      name: 'LIONEL MESSI',
+      role: 'CAPITÁN',
+      team: 'ARGENTINA #10',
+      col1: '#0284c7',
+      col2: '#38bdf8',
+      icon: '👑',
+      bgAccent: '#7dd3fc',
+    },
+    {
+      n: 3,
+      name: 'KYLIAN MBAPPÉ',
+      role: 'DELANTERO',
+      team: 'FRANCE #10',
+      col1: '#1d4ed8',
+      col2: '#60a5fa',
+      icon: '⚡',
+      bgAccent: '#93c5fd',
+    },
+    {
+      n: 4,
+      name: 'ERLING HAALAND',
+      role: 'DELANTERO',
+      team: 'NORWAY #9',
+      col1: '#0369a1',
+      col2: '#0284c7',
+      icon: '🤖',
+      bgAccent: '#38bdf8',
+    },
+    {
+      n: 5,
+      name: 'JUDE BELLINGHAM',
+      role: 'MEDIOCAMPO',
+      team: 'ENGLAND #10',
+      col1: '#374151',
+      col2: '#6b7280',
+      icon: '⭐',
+      bgAccent: '#9ca3af',
+    },
+    {
+      n: 6,
+      name: 'VINÍCIUS JÚNIOR',
+      role: 'EXTREMO',
+      team: 'BRASIL #7',
+      col1: '#ca8a04',
+      col2: '#eab308',
+      icon: '🔥',
+      bgAccent: '#fde047',
+    },
+    {
+      n: 7,
+      name: 'LAMINE YAMAL',
+      role: 'PROMESA',
+      team: 'ESPAÑA #19',
+      col1: '#b91c1c',
+      col2: '#ef4444',
+      icon: '💎',
+      bgAccent: '#f87171',
+    },
+    {
+      n: 8,
+      name: 'DIBU MARTÍNEZ',
+      role: 'PORTERO',
+      team: 'ARGENTINA #23',
+      col1: '#047857',
+      col2: '#10b981',
+      icon: '🧤',
+      bgAccent: '#34d399',
+    },
+    {
+      n: 9,
+      name: 'THIBAUT COURTOIS',
+      role: 'PORTERO',
+      team: 'BELGIUM #1',
+      col1: '#0f766e',
+      col2: '#14b8a6',
+      icon: '🧱',
+      bgAccent: '#2dd4bf',
+    },
+    {
+      n: 10,
+      name: 'TROFEO MUNDIAL',
+      role: 'EDICIÓN ORO',
+      team: 'WORLD CHAMPION',
+      col1: '#b45309',
+      col2: '#f59e0b',
+      icon: '🏆',
+      bgAccent: '#fde68a',
+    },
   ]
 
   for (const s of stickerData) {
@@ -177,8 +267,8 @@ async function main() {
   const hashedPassword = await bcrypt.hash('password123', 10)
 
   // 1. Usuarios de prueba
-  const user1 = await getOrCreateUser('coleccionista1', 'cole1@stickdex.com', hashedPassword)
-  const user2 = await getOrCreateUser('coleccionista2', 'cole2@stickdex.com', hashedPassword)
+  const user1 = await getOrCreateUser('coleccionista1', 'cole1@test.com', hashedPassword)
+  const user2 = await getOrCreateUser('coleccionista2', 'cole2@test.com', hashedPassword)
 
   console.log('✓ Usuarios disponibles (contraseña: password123):')
   console.log(`  - ${user1.email} (${user1.username})`)
@@ -200,7 +290,12 @@ async function main() {
     { number: 7, name: 'Lamine Yamal', type: 'Promesa', imageUrl: '/uploads/sticker-7.svg' },
     { number: 8, name: 'Dibu Martínez', type: 'Portero', imageUrl: '/uploads/sticker-8.svg' },
     { number: 9, name: 'Thibaut Courtois', type: 'Portero', imageUrl: '/uploads/sticker-9.svg' },
-    { number: 10, name: 'Trofeo del Mundial', type: 'Especial', imageUrl: '/uploads/sticker-10.svg' },
+    {
+      number: 10,
+      name: 'Trofeo del Mundial',
+      type: 'Especial',
+      imageUrl: '/uploads/sticker-10.svg',
+    },
   ]
 
   if (!album) {
@@ -220,7 +315,7 @@ async function main() {
     })
     console.log('✓ Álbum "Mundial 2026" creado con 10 láminas')
   } else {
-    // Actualizar portada, totalStickers y fotos de láminas existentes
+    // Actualizar portada, totalStickers, dueño y fotos de láminas existentes
     await prisma.album.update({
       where: { id: album.id },
       data: {
@@ -229,6 +324,7 @@ async function main() {
         stickerType: 'Fútbol',
         imageUrl: albumCoverUrl,
         releaseDate: new Date('2026-06-01'),
+        userId: user1.id,
       },
     })
 
@@ -254,39 +350,73 @@ async function main() {
     console.log('✓ Álbum y láminas actualizados con diseño deluxe e imágenes')
   }
 
-  // 3. Colección de prueba para coleccionista1
-  const existingCol = await prisma.collection.findFirst({
-    where: { userId: user1.id, albumId: album.id },
+  // 3. Colección de prueba para coleccionista1 (estado documentado en el README)
+  const albumStickers = await prisma.sticker.findMany({
+    where: { albumId: album.id },
+    orderBy: { number: 'asc' },
   })
 
-  if (!existingCol) {
-    const stickers = await prisma.sticker.findMany({
-      where: { albumId: album.id },
-      orderBy: { number: 'asc' },
+  if (albumStickers.length < 5) {
+    console.warn('⚠ Se necesitan al menos 5 láminas para crear la colección de prueba')
+  } else {
+    const existingCol = await prisma.collection.findFirst({
+      where: { userId: user1.id, albumId: album.id },
     })
 
-    if (stickers.length >= 5) {
-      await prisma.collection.create({
-        data: {
-          name: 'Mi Álbum del Mundial',
-          albumId: album.id,
-          userId: user1.id,
-          isPublic: true,
-          stickers: {
-            create: [
-              { stickerId: stickers[0].id, quantity: 1, isDuplicated: false },
-              { stickerId: stickers[1].id, quantity: 2, isDuplicated: true }, // Repetida!
-              { stickerId: stickers[2].id, quantity: 1, isDuplicated: false },
-              { stickerId: stickers[3].id, quantity: 3, isDuplicated: true }, // Repetida!
-              { stickerId: stickers[4].id, quantity: 1, isDuplicated: false },
-            ],
+    const collection = existingCol
+      ? await prisma.collection.update({
+          where: { id: existingCol.id },
+          data: { name: 'Mi Álbum del Mundial', isPublic: true },
+        })
+      : await prisma.collection.create({
+          data: {
+            name: 'Mi Álbum del Mundial',
+            albumId: album.id,
+            userId: user1.id,
+            isPublic: true,
           },
-        },
-      })
-      console.log('✓ Colección de prueba creada (5 láminas pegadas, 2 repetidas, 5 faltantes)')
-    }
-  } else {
-    console.log('ℹ Colección de prueba ya existe')
+        })
+
+    // Se reinicia el estado para que el seed sea reproducible: 5 pegadas, 2 repetidas, 5 faltantes.
+    await prisma.$transaction([
+      prisma.collectedSticker.deleteMany({ where: { collectionId: collection.id } }),
+      prisma.collectedSticker.createMany({
+        data: [
+          {
+            collectionId: collection.id,
+            stickerId: albumStickers[0].id,
+            quantity: 1,
+            isDuplicated: false,
+          },
+          {
+            collectionId: collection.id,
+            stickerId: albumStickers[1].id,
+            quantity: 2,
+            isDuplicated: true,
+          },
+          {
+            collectionId: collection.id,
+            stickerId: albumStickers[2].id,
+            quantity: 1,
+            isDuplicated: false,
+          },
+          {
+            collectionId: collection.id,
+            stickerId: albumStickers[3].id,
+            quantity: 3,
+            isDuplicated: true,
+          },
+          {
+            collectionId: collection.id,
+            stickerId: albumStickers[4].id,
+            quantity: 1,
+            isDuplicated: false,
+          },
+        ],
+      }),
+    ])
+
+    console.log('✓ Colección de prueba lista (5 láminas pegadas, 2 repetidas, 5 faltantes)')
   }
 
   console.log('🎉 Seed completado exitosamente.')

@@ -35,6 +35,7 @@
 - NO pushear sin confirmación explícita del usuario.
 - NO forzar push (`--force`) ni reescribir historia de ramas compartidas.
 - Ejecutar typecheck, lint y pruebas relevantes ANTES de pushear.
+- Suite disponible: `app/backend` con `npm test` (Vitest, sin base de datos). El frontend no tiene suite propia; su comportamiento se verifica con el smoke test de la app real.
 - Verificar el comportamiento con smoke test (correr la app real, no solo los tests).
 - Confirmar que no se rompieron pruebas existentes.
 - Commit atómico con mensaje Conventional Commits.

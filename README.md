@@ -237,7 +237,7 @@ Base URL: `http://localhost:3000/api`
 ### Carga de Archivos (`/upload`)
 | Método | Ruta | Descripción |
 |---|---|---|
-| `POST` | `/upload` | Subir imagen JPEG/PNG/WEBP (máx. 5MB, requiere sesión) |
+| `POST` | `/upload` | Subir imagen JPEG/PNG/WEBP/GIF (máx. 5MB, requiere sesión). El archivo se guarda con la extensión derivada del MIME, nunca la del nombre original |
 
 ### Formato de errores
 
@@ -288,3 +288,9 @@ Las acciones de escritura (crear/editar/eliminar) solo se muestran al dueño del
 - `npm run typecheck`: Comprobación de tipos estáticos en frontend.
 - `npm run lint`: ESLint sobre todo el paquete.
 - `npm run format` / `npm run format:check`: Prettier.
+
+### Verificación ejecutada sobre este repositorio
+
+- Backend: `npm run typecheck`, `npm run lint`, `npm run format:check` y `npm test` (120 pruebas, sin base de datos).
+- Frontend: `npm run typecheck`, `npm run lint` y `npm run format:check`.
+- Pruebas de humo sobre la aplicación real: 48 comprobaciones contra la API (login, autorización por propiedad, visibilidad, reportes, conflictos 409, subidas) y recorrido de la interfaz en un navegador (login/logout, rutas protegidas, perfil público, edición de álbum y lámina, validación inline, progreso y repetidas).

@@ -1,25 +1,45 @@
 import { useState, type FormEvent } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
+import { getFieldErrors } from '../services/api'
 
 export default function Register() {
   const [username, setUsername] = useState('')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
-  const [error, setError] = useState<string | null>(null)
+  const [generalError, setGeneralError] = useState<string | null>(null)
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({})
   const [loading, setLoading] = useState(false)
   const { register } = useAuth()
   const navigate = useNavigate()
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault()
-    setError(null)
+    setGeneralError(null)
+    setFieldErrors({})
+
+    // Validación inline inicial
+    const errors: Record<string, string> = {}
+    if (username.trim().length < 3) errors.username = 'El usuario debe tener al menos 3 caracteres'
+    if (!email.trim() || !email.includes('@')) errors.email = 'Introduce un email válido'
+    if (password.length < 8) errors.password = 'La contraseña debe tener al menos 8 caracteres'
+
+    if (Object.keys(errors).length > 0) {
+      setFieldErrors(errors)
+      return
+    }
+
     setLoading(true)
     try {
       await register(username, email, password)
       navigate('/albums')
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Error al registrarse')
+      const zErrors = getFieldErrors(err)
+      if (Object.keys(zErrors).length > 0) {
+        setFieldErrors(zErrors)
+      } else {
+        setGeneralError(err instanceof Error ? err.message : 'Error al registrarse')
+      }
     } finally {
       setLoading(false)
     }
@@ -31,51 +51,78 @@ export default function Register() {
         <h2 className="text-2xl font-bold text-slate-900">Crear cuenta</h2>
         <p className="mt-1 text-sm text-slate-600">Únete a la comunidad de coleccionistas</p>
 
-        {error && (
-          <div className="mt-4 rounded-lg bg-red-50 p-3 text-sm text-red-700">{error}</div>
+        {generalError && (
+          <div className="mt-4 rounded-lg bg-red-50 p-3 text-sm font-medium text-red-700">
+            {generalError}
+          </div>
         )}
 
-        <form onSubmit={handleSubmit} className="mt-6 space-y-4">
+        <form noValidate onSubmit={handleSubmit} className="mt-6 space-y-4">
           <div>
             <label className="block text-xs font-semibold uppercase text-slate-600">
               Nombre de usuario
             </label>
             <input
               type="text"
-              required
-              minLength={3}
               value={username}
-              onChange={(e) => setUsername(e.target.value)}
-              className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+              onChange={(e) => {
+                setUsername(e.target.value)
+                if (fieldErrors.username) setFieldErrors((prev) => ({ ...prev, username: '' }))
+              }}
+              className={`mt-1 w-full rounded-lg border px-3 py-2 text-sm shadow-sm focus:outline-none ${
+                fieldErrors.username
+                  ? 'border-red-500 focus:border-red-500 focus:ring-1 focus:ring-red-500'
+                  : 'border-slate-300 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500'
+              }`}
               placeholder="coleccionista123"
             />
+            {fieldErrors.username && (
+              <p className="mt-1 text-xs font-medium text-red-600">{fieldErrors.username}</p>
+            )}
           </div>
 
           <div>
             <label className="block text-xs font-semibold uppercase text-slate-600">Email</label>
             <input
               type="email"
-              required
               value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+              onChange={(e) => {
+                setEmail(e.target.value)
+                if (fieldErrors.email) setFieldErrors((prev) => ({ ...prev, email: '' }))
+              }}
+              className={`mt-1 w-full rounded-lg border px-3 py-2 text-sm shadow-sm focus:outline-none ${
+                fieldErrors.email
+                  ? 'border-red-500 focus:border-red-500 focus:ring-1 focus:ring-red-500'
+                  : 'border-slate-300 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500'
+              }`}
               placeholder="tu@email.com"
             />
+            {fieldErrors.email && (
+              <p className="mt-1 text-xs font-medium text-red-600">{fieldErrors.email}</p>
+            )}
           </div>
 
           <div>
             <label className="block text-xs font-semibold uppercase text-slate-600">
-              Contraseña (mínimo 8 caracteres)
+              Contraseña
             </label>
             <input
               type="password"
-              required
-              minLength={8}
               value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
-              placeholder="••••••••"
+              onChange={(e) => {
+                setPassword(e.target.value)
+                if (fieldErrors.password) setFieldErrors((prev) => ({ ...prev, password: '' }))
+              }}
+              className={`mt-1 w-full rounded-lg border px-3 py-2 text-sm shadow-sm focus:outline-none ${
+                fieldErrors.password
+                  ? 'border-red-500 focus:border-red-500 focus:ring-1 focus:ring-red-500'
+                  : 'border-slate-300 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500'
+              }`}
+              placeholder="•••••••• (mínimo 8 caracteres)"
             />
+            {fieldErrors.password && (
+              <p className="mt-1 text-xs font-medium text-red-600">{fieldErrors.password}</p>
+            )}
           </div>
 
           <button

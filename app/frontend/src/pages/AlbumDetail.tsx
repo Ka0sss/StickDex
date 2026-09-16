@@ -1,7 +1,7 @@
 import { useEffect, useState, type FormEvent } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
-import { api } from '../services/api'
+import { api, getFieldErrors } from '../services/api'
 import type { Album, Sticker } from '../types'
 
 export default function AlbumDetail() {
@@ -16,10 +16,17 @@ export default function AlbumDetail() {
   const [stickerName, setStickerName] = useState('')
   const [stickerType, setStickerType] = useState('')
   const [stickerFile, setStickerFile] = useState<File | null>(null)
+  const [stickerErrors, setStickerErrors] = useState<Record<string, string>>({})
+  const [modalError, setModalError] = useState<string | null>(null)
 
   // Bulk Modal
   const [showBulkModal, setShowBulkModal] = useState(false)
   const [bulkInput, setBulkInput] = useState('')
+  const [bulkError, setBulkError] = useState<string | null>(null)
+
+  // Inline confirmations
+  const [deletingStickerId, setDeletingStickerId] = useState<number | null>(null)
+  const [confirmDeleteAlbum, setConfirmDeleteAlbum] = useState(false)
 
   const [submitting, setSubmitting] = useState(false)
   const { user } = useAuth()
@@ -47,7 +54,22 @@ export default function AlbumDetail() {
     e.preventDefault()
     if (!album) return
     setSubmitting(true)
-    setError(null)
+    setModalError(null)
+    setStickerErrors({})
+
+    const localErrors: Record<string, string> = {}
+    if (!stickerNumber || Number(stickerNumber) < 1) {
+      localErrors.number = 'El número debe ser mayor a 0'
+    }
+    if (!stickerName.trim()) {
+      localErrors.name = 'El nombre de la lámina es obligatorio'
+    }
+
+    if (Object.keys(localErrors).length > 0) {
+      setStickerErrors(localErrors)
+      setSubmitting(false)
+      return
+    }
 
     try {
       let imageUrl: string | undefined = undefined
@@ -65,8 +87,8 @@ export default function AlbumDetail() {
         method: 'POST',
         body: JSON.stringify({
           number: Number(stickerNumber),
-          name: stickerName,
-          type: stickerType || undefined,
+          name: stickerName.trim(),
+          type: stickerType.trim() || undefined,
           imageUrl,
         }),
       })
@@ -76,9 +98,15 @@ export default function AlbumDetail() {
       setStickerName('')
       setStickerType('')
       setStickerFile(null)
+      setStickerErrors({})
       await loadAlbum()
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Error al agregar lámina')
+      const zErrors = getFieldErrors(err)
+      if (Object.keys(zErrors).length > 0) {
+        setStickerErrors(zErrors)
+      } else {
+        setModalError(err instanceof Error ? err.message : 'Error al agregar lámina')
+      }
     } finally {
       setSubmitting(false)
     }
@@ -88,7 +116,7 @@ export default function AlbumDetail() {
     e.preventDefault()
     if (!album) return
     setSubmitting(true)
-    setError(null)
+    setBulkError(null)
 
     try {
       const lines = bulkInput.trim().split('\n')
@@ -107,7 +135,9 @@ export default function AlbumDetail() {
       }
 
       if (stickers.length === 0) {
-        throw new Error('Formato inválido. Usa: "1, Nombre Lámina, Tipo" por línea')
+        setBulkError('Formato inválido. Usa: "1, Nombre Lámina, Tipo" por línea')
+        setSubmitting(false)
+        return
       }
 
       await api(`/albums/${album.id}/stickers/bulk`, {
@@ -117,31 +147,33 @@ export default function AlbumDetail() {
 
       setShowBulkModal(false)
       setBulkInput('')
+      setBulkError(null)
       await loadAlbum()
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Error en carga masiva')
+      setBulkError(err instanceof Error ? err.message : 'Error en carga masiva')
     } finally {
       setSubmitting(false)
     }
   }
 
   const handleDeleteSticker = async (stickerId: number) => {
-    if (!confirm('¿Eliminar esta lámina del catálogo del álbum?')) return
     try {
       await api(`/stickers/${stickerId}`, { method: 'DELETE' })
+      setDeletingStickerId(null)
       await loadAlbum()
     } catch (err: unknown) {
-      alert(err instanceof Error ? err.message : 'Error al eliminar')
+      setError(err instanceof Error ? err.message : 'Error al eliminar lámina')
     }
   }
 
   const handleDeleteAlbum = async () => {
-    if (!album || !confirm(`¿Eliminar el álbum "${album.name}" y todas sus láminas?`)) return
+    if (!album) return
     try {
       await api(`/albums/${album.id}`, { method: 'DELETE' })
       navigate('/albums')
     } catch (err: unknown) {
-      alert(err instanceof Error ? err.message : 'Error al eliminar álbum')
+      setError(err instanceof Error ? err.message : 'Error al eliminar álbum')
+      setConfirmDeleteAlbum(false)
     }
   }
 
@@ -172,9 +204,9 @@ export default function AlbumDetail() {
               <span className="rounded-full bg-indigo-50 px-3 py-1 text-xs font-bold text-indigo-700">
                 {album.stickerType || 'General'}
               </span>
-              {isOwner && (
+              {isOwner && !confirmDeleteAlbum && (
                 <button
-                  onClick={handleDeleteAlbum}
+                  onClick={() => setConfirmDeleteAlbum(true)}
                   className="text-xs font-semibold text-red-600 hover:text-red-700 hover:underline"
                 >
                   Eliminar Álbum
@@ -204,6 +236,29 @@ export default function AlbumDetail() {
         </div>
       </div>
 
+      {/* Alerta de confirmación de eliminación de álbum */}
+      {confirmDeleteAlbum && (
+        <div className="mt-4 rounded-xl border border-red-200 bg-red-50 p-4">
+          <p className="text-sm font-bold text-red-800">
+            ¿Confirmas que deseas eliminar el álbum "{album.name}" y todas sus láminas asociadas?
+          </p>
+          <div className="mt-3 flex space-x-3">
+            <button
+              onClick={handleDeleteAlbum}
+              className="rounded-lg bg-red-600 px-3 py-1.5 text-xs font-bold text-white hover:bg-red-700"
+            >
+              Sí, eliminar álbum
+            </button>
+            <button
+              onClick={() => setConfirmDeleteAlbum(false)}
+              className="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50"
+            >
+              Cancelar
+            </button>
+          </div>
+        </div>
+      )}
+
       {error && (
         <div className="mt-4 rounded-lg bg-red-50 p-3 text-sm text-red-700">{error}</div>
       )}
@@ -212,13 +267,20 @@ export default function AlbumDetail() {
       {isOwner && (
         <div className="mt-6 flex flex-wrap gap-3">
           <button
-            onClick={() => setShowAddModal(true)}
+            onClick={() => {
+              setModalError(null)
+              setStickerErrors({})
+              setShowAddModal(true)
+            }}
             className="rounded-lg bg-indigo-600 px-4 py-2 text-xs font-bold text-white shadow-sm hover:bg-indigo-500"
           >
             + Añadir Lámina
           </button>
           <button
-            onClick={() => setShowBulkModal(true)}
+            onClick={() => {
+              setBulkError(null)
+              setShowBulkModal(true)
+            }}
             className="rounded-lg bg-slate-100 px-4 py-2 text-xs font-bold text-slate-700 hover:bg-slate-200"
           >
             ⚡ Carga Masiva
@@ -241,36 +303,60 @@ export default function AlbumDetail() {
           {album.stickers.map((st) => (
             <div
               key={st.id}
-              className="group relative flex flex-col overflow-hidden rounded-xl border border-slate-200 bg-white p-3 shadow-sm hover:border-indigo-300"
+              className="group relative flex flex-col justify-between overflow-hidden rounded-xl border border-slate-200 bg-white p-3 shadow-sm hover:border-indigo-300"
             >
-              <div className="flex items-center justify-between">
-                <span className="rounded-md bg-slate-900 px-2 py-0.5 text-xs font-black text-white">
-                  #{st.number}
-                </span>
-                {st.type && (
-                  <span className="text-[10px] font-semibold text-indigo-600">{st.type}</span>
-                )}
-              </div>
+              <div>
+                <div className="flex items-center justify-between">
+                  <span className="rounded-md bg-slate-900 px-2 py-0.5 text-xs font-black text-white">
+                    #{st.number}
+                  </span>
+                  {st.type && (
+                    <span className="text-[10px] font-semibold text-indigo-600">{st.type}</span>
+                  )}
+                </div>
 
-              <div className="my-2 flex h-24 w-full items-center justify-center overflow-hidden rounded-lg bg-slate-50">
-                {st.imageUrl ? (
-                  <img src={st.imageUrl} alt={st.name} className="h-full w-full object-cover" />
-                ) : (
-                  <span className="text-xs font-bold text-slate-300">#{st.number}</span>
-                )}
-              </div>
+                <div className="my-2 flex h-24 w-full items-center justify-center overflow-hidden rounded-lg bg-slate-50">
+                  {st.imageUrl ? (
+                    <img src={st.imageUrl} alt={st.name} className="h-full w-full object-cover" />
+                  ) : (
+                    <span className="text-xs font-bold text-slate-300">#{st.number}</span>
+                  )}
+                </div>
 
-              <p className="truncate text-center text-xs font-bold text-slate-800" title={st.name}>
-                {st.name}
-              </p>
+                <p className="truncate text-center text-xs font-bold text-slate-800" title={st.name}>
+                  {st.name}
+                </p>
+              </div>
 
               {isOwner && (
-                <button
-                  onClick={() => handleDeleteSticker(st.id)}
-                  className="mt-2 text-[10px] font-semibold text-red-500 hover:underline"
-                >
-                  Eliminar
-                </button>
+                <div className="mt-2 border-t border-slate-100 pt-2 text-center">
+                  {deletingStickerId === st.id ? (
+                    <div className="space-y-1">
+                      <p className="text-[10px] font-bold text-red-600">¿Borrar?</p>
+                      <div className="flex justify-center space-x-1">
+                        <button
+                          onClick={() => handleDeleteSticker(st.id)}
+                          className="rounded bg-red-600 px-1.5 py-0.5 text-[10px] font-bold text-white hover:bg-red-700"
+                        >
+                          Sí
+                        </button>
+                        <button
+                          onClick={() => setDeletingStickerId(null)}
+                          className="rounded bg-slate-100 px-1.5 py-0.5 text-[10px] font-medium text-slate-600 hover:bg-slate-200"
+                        >
+                          No
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <button
+                      onClick={() => setDeletingStickerId(st.id)}
+                      className="text-[10px] font-semibold text-red-500 hover:underline"
+                    >
+                      Eliminar
+                    </button>
+                  )}
+                </div>
               )}
             </div>
           ))}
@@ -282,19 +368,33 @@ export default function AlbumDetail() {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
           <div className="w-full max-w-md rounded-xl bg-white p-6 shadow-xl">
             <h3 className="text-lg font-bold text-slate-900">Añadir Lámina al Álbum</h3>
-            <form onSubmit={handleAddSticker} className="mt-4 space-y-4">
+
+            {modalError && (
+              <div className="mt-3 rounded-lg bg-red-50 p-2.5 text-xs text-red-700">{modalError}</div>
+            )}
+
+            <form noValidate onSubmit={handleAddSticker} className="mt-4 space-y-4">
               <div className="grid grid-cols-3 gap-3">
                 <div className="col-span-1">
                   <label className="block text-xs font-semibold uppercase text-slate-600">Nº</label>
                   <input
                     type="number"
-                    required
                     min={1}
                     value={stickerNumber}
-                    onChange={(e) => setStickerNumber(e.target.value === '' ? '' : Number(e.target.value))}
-                    className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none"
+                    onChange={(e) => {
+                      setStickerNumber(e.target.value === '' ? '' : Number(e.target.value))
+                      if (stickerErrors.number) setStickerErrors((prev) => ({ ...prev, number: '' }))
+                    }}
+                    className={`mt-1 w-full rounded-lg border px-3 py-2 text-sm focus:outline-none ${
+                      stickerErrors.number
+                        ? 'border-red-500 focus:border-red-500 focus:ring-1 focus:ring-red-500'
+                        : 'border-slate-300 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500'
+                    }`}
                     placeholder="1"
                   />
+                  {stickerErrors.number && (
+                    <p className="mt-1 text-xs font-medium text-red-600">{stickerErrors.number}</p>
+                  )}
                 </div>
                 <div className="col-span-2">
                   <label className="block text-xs font-semibold uppercase text-slate-600">Tipo</label>
@@ -312,12 +412,21 @@ export default function AlbumDetail() {
                 <label className="block text-xs font-semibold uppercase text-slate-600">Nombre</label>
                 <input
                   type="text"
-                  required
                   value={stickerName}
-                  onChange={(e) => setStickerName(e.target.value)}
-                  className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none"
+                  onChange={(e) => {
+                    setStickerName(e.target.value)
+                    if (stickerErrors.name) setStickerErrors((prev) => ({ ...prev, name: '' }))
+                  }}
+                  className={`mt-1 w-full rounded-lg border px-3 py-2 text-sm focus:outline-none ${
+                    stickerErrors.name
+                      ? 'border-red-500 focus:border-red-500 focus:ring-1 focus:ring-red-500'
+                      : 'border-slate-300 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500'
+                  }`}
                   placeholder="Lionel Messi"
                 />
+                {stickerErrors.name && (
+                  <p className="mt-1 text-xs font-medium text-red-600">{stickerErrors.name}</p>
+                )}
               </div>
 
               <div>
@@ -359,16 +468,25 @@ export default function AlbumDetail() {
           <div className="w-full max-w-lg rounded-xl bg-white p-6 shadow-xl">
             <h3 className="text-lg font-bold text-slate-900">Carga Masiva de Láminas</h3>
             <p className="mt-1 text-xs text-slate-500">
-              Ingresa una lámina por línea en formato: <code className="bg-slate-100 px-1 py-0.5 font-mono">Número, Nombre, Tipo</code>
+              Ingresa una lámina por línea en formato:{' '}
+              <code className="bg-slate-100 px-1 py-0.5 font-mono">Número, Nombre, Tipo</code>
             </p>
 
-            <form onSubmit={handleBulkCreate} className="mt-4 space-y-4">
+            {bulkError && (
+              <div className="mt-3 rounded-lg bg-red-50 p-2.5 text-xs text-red-700">{bulkError}</div>
+            )}
+
+            <form noValidate onSubmit={handleBulkCreate} className="mt-4 space-y-4">
               <textarea
-                required
                 rows={8}
                 value={bulkInput}
-                onChange={(e) => setBulkInput(e.target.value)}
-                className="w-full font-mono rounded-lg border border-slate-300 p-3 text-xs focus:border-indigo-500 focus:outline-none"
+                onChange={(e) => {
+                  setBulkInput(e.target.value)
+                  if (bulkError) setBulkError(null)
+                }}
+                className={`w-full font-mono rounded-lg border p-3 text-xs focus:outline-none ${
+                  bulkError ? 'border-red-500' : 'border-slate-300 focus:border-indigo-500'
+                }`}
                 placeholder={`1, Escudo, Brillante\n2, Portero, Normal\n3, Capitán, Capitán`}
               />
 

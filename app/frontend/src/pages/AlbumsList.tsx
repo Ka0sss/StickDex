@@ -1,7 +1,7 @@
 import { useEffect, useState, type FormEvent } from 'react'
 import { Link } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
-import { api } from '../services/api'
+import { api, getFieldErrors } from '../services/api'
 import type { Album } from '../types'
 
 export default function AlbumsList() {
@@ -13,10 +13,11 @@ export default function AlbumsList() {
   // Form states
   const [name, setName] = useState('')
   const [description, setDescription] = useState('')
-  const [totalStickers, setTotalStickers] = useState(100)
+  const [totalStickers, setTotalStickers] = useState<number | ''>(100)
   const [releaseDate, setReleaseDate] = useState('')
   const [stickerType, setStickerType] = useState('')
   const [imageFile, setImageFile] = useState<File | null>(null)
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({})
   const [submitting, setSubmitting] = useState(false)
 
   const { user } = useAuth()
@@ -41,6 +42,20 @@ export default function AlbumsList() {
     e.preventDefault()
     setSubmitting(true)
     setError(null)
+    setFieldErrors({})
+
+    const localErrors: Record<string, string> = {}
+    if (!name.trim()) localErrors.name = 'El nombre del álbum es obligatorio'
+    if (!totalStickers || Number(totalStickers) < 1) {
+      localErrors.totalStickers = 'El total de láminas debe ser mayor a 0'
+    }
+
+    if (Object.keys(localErrors).length > 0) {
+      setFieldErrors(localErrors)
+      setSubmitting(false)
+      return
+    }
+
     try {
       let imageUrl: string | undefined = undefined
 
@@ -57,11 +72,11 @@ export default function AlbumsList() {
       await api<Album>('/albums', {
         method: 'POST',
         body: JSON.stringify({
-          name,
-          description: description || undefined,
+          name: name.trim(),
+          description: description.trim() || undefined,
           totalStickers: Number(totalStickers),
           releaseDate: releaseDate || undefined,
-          stickerType: stickerType || undefined,
+          stickerType: stickerType.trim() || undefined,
           imageUrl,
         }),
       })
@@ -70,9 +85,15 @@ export default function AlbumsList() {
       setName('')
       setDescription('')
       setImageFile(null)
+      setFieldErrors({})
       await loadAlbums()
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Error al crear álbum')
+      const zErrors = getFieldErrors(err)
+      if (Object.keys(zErrors).length > 0) {
+        setFieldErrors(zErrors)
+      } else {
+        setError(err instanceof Error ? err.message : 'Error al crear álbum')
+      }
     } finally {
       setSubmitting(false)
     }
@@ -89,7 +110,11 @@ export default function AlbumsList() {
         </div>
         {user && (
           <button
-            onClick={() => setShowModal(true)}
+            onClick={() => {
+              setFieldErrors({})
+              setError(null)
+              setShowModal(true)
+            }}
             className="inline-flex items-center justify-center rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-indigo-500"
           >
             + Crear Álbum
@@ -166,17 +191,26 @@ export default function AlbumsList() {
               </button>
             </div>
 
-            <form onSubmit={handleCreateAlbum} className="mt-4 space-y-4">
+            <form noValidate onSubmit={handleCreateAlbum} className="mt-4 space-y-4">
               <div>
                 <label className="block text-xs font-semibold uppercase text-slate-600">Nombre</label>
                 <input
                   type="text"
-                  required
                   value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none"
+                  onChange={(e) => {
+                    setName(e.target.value)
+                    if (fieldErrors.name) setFieldErrors((prev) => ({ ...prev, name: '' }))
+                  }}
+                  className={`mt-1 w-full rounded-lg border px-3 py-2 text-sm focus:outline-none ${
+                    fieldErrors.name
+                      ? 'border-red-500 focus:border-red-500 focus:ring-1 focus:ring-red-500'
+                      : 'border-slate-300 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500'
+                  }`}
                   placeholder="Mundial 2026"
                 />
+                {fieldErrors.name && (
+                  <p className="mt-1 text-xs font-medium text-red-600">{fieldErrors.name}</p>
+                )}
               </div>
 
               <div>
@@ -198,12 +232,21 @@ export default function AlbumsList() {
                   </label>
                   <input
                     type="number"
-                    required
                     min={1}
                     value={totalStickers}
-                    onChange={(e) => setTotalStickers(Number(e.target.value))}
-                    className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none"
+                    onChange={(e) => {
+                      setTotalStickers(e.target.value === '' ? '' : Number(e.target.value))
+                      if (fieldErrors.totalStickers) setFieldErrors((prev) => ({ ...prev, totalStickers: '' }))
+                    }}
+                    className={`mt-1 w-full rounded-lg border px-3 py-2 text-sm focus:outline-none ${
+                      fieldErrors.totalStickers
+                        ? 'border-red-500 focus:border-red-500 focus:ring-1 focus:ring-red-500'
+                        : 'border-slate-300 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500'
+                    }`}
                   />
+                  {fieldErrors.totalStickers && (
+                    <p className="mt-1 text-xs font-medium text-red-600">{fieldErrors.totalStickers}</p>
+                  )}
                 </div>
                 <div>
                   <label className="block text-xs font-semibold uppercase text-slate-600">

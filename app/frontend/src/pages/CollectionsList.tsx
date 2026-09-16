@@ -1,7 +1,7 @@
-import React, { useEffect, useState } from 'react'
+import { useEffect, useState, type FormEvent } from 'react'
 import { Link } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
-import { api } from '../services/api'
+import { api, getFieldErrors } from '../services/api'
 import type { Album, Collection } from '../types'
 
 export default function CollectionsList() {
@@ -16,6 +16,8 @@ export default function CollectionsList() {
   const [name, setName] = useState('')
   const [selectedAlbumId, setSelectedAlbumId] = useState<number | ''>('')
   const [isPublic, setIsPublic] = useState(false)
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({})
+  const [modalError, setModalError] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
 
   const { user } = useAuth()
@@ -54,16 +56,27 @@ export default function CollectionsList() {
     if (user) loadAlbums()
   }, [user])
 
-  const handleCreateCollection = async (e: React.FormEvent) => {
+  const handleCreateCollection = async (e: FormEvent) => {
     e.preventDefault()
-    if (!selectedAlbumId) return
     setSubmitting(true)
-    setError(null)
+    setModalError(null)
+    setFieldErrors({})
+
+    const localErrors: Record<string, string> = {}
+    if (!name.trim()) localErrors.name = 'El nombre de la colección es obligatorio'
+    if (!selectedAlbumId) localErrors.albumId = 'Debes seleccionar un álbum'
+
+    if (Object.keys(localErrors).length > 0) {
+      setFieldErrors(localErrors)
+      setSubmitting(false)
+      return
+    }
+
     try {
       await api<Collection>('/collections', {
         method: 'POST',
         body: JSON.stringify({
-          name,
+          name: name.trim(),
           albumId: Number(selectedAlbumId),
           isPublic,
         }),
@@ -72,10 +85,16 @@ export default function CollectionsList() {
       setShowModal(false)
       setName('')
       setIsPublic(false)
+      setFieldErrors({})
       setActiveTab('mine')
       await loadCollections()
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Error al crear la colección')
+      const zErrors = getFieldErrors(err)
+      if (Object.keys(zErrors).length > 0) {
+        setFieldErrors(zErrors)
+      } else {
+        setModalError(err instanceof Error ? err.message : 'Error al crear la colección')
+      }
     } finally {
       setSubmitting(false)
     }
@@ -93,7 +112,11 @@ export default function CollectionsList() {
 
         {user && (
           <button
-            onClick={() => setShowModal(true)}
+            onClick={() => {
+              setModalError(null)
+              setFieldErrors({})
+              setShowModal(true)
+            }}
             className="inline-flex items-center justify-center rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-indigo-500"
           >
             + Nueva Colección
@@ -192,19 +215,33 @@ export default function CollectionsList() {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
           <div className="w-full max-w-md rounded-xl bg-white p-6 shadow-xl">
             <h3 className="text-lg font-bold text-slate-900">Iniciar Nueva Colección</h3>
-            <form onSubmit={handleCreateCollection} className="mt-4 space-y-4">
+
+            {modalError && (
+              <div className="mt-3 rounded-lg bg-red-50 p-2.5 text-xs text-red-700">{modalError}</div>
+            )}
+
+            <form noValidate onSubmit={handleCreateCollection} className="mt-4 space-y-4">
               <div>
                 <label className="block text-xs font-semibold uppercase text-slate-600">
                   Nombre de la Colección
                 </label>
                 <input
                   type="text"
-                  required
                   value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none"
+                  onChange={(e) => {
+                    setName(e.target.value)
+                    if (fieldErrors.name) setFieldErrors((prev) => ({ ...prev, name: '' }))
+                  }}
+                  className={`mt-1 w-full rounded-lg border px-3 py-2 text-sm focus:outline-none ${
+                    fieldErrors.name
+                      ? 'border-red-500 focus:border-red-500 focus:ring-1 focus:ring-red-500'
+                      : 'border-slate-300 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500'
+                  }`}
                   placeholder="Mi Álbum Mundial 2026"
                 />
+                {fieldErrors.name && (
+                  <p className="mt-1 text-xs font-medium text-red-600">{fieldErrors.name}</p>
+                )}
               </div>
 
               <div>
@@ -218,8 +255,15 @@ export default function CollectionsList() {
                 ) : (
                   <select
                     value={selectedAlbumId}
-                    onChange={(e) => setSelectedAlbumId(Number(e.target.value))}
-                    className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none"
+                    onChange={(e) => {
+                      setSelectedAlbumId(Number(e.target.value))
+                      if (fieldErrors.albumId) setFieldErrors((prev) => ({ ...prev, albumId: '' }))
+                    }}
+                    className={`mt-1 w-full rounded-lg border px-3 py-2 text-sm focus:outline-none ${
+                      fieldErrors.albumId
+                        ? 'border-red-500 focus:border-red-500 focus:ring-1 focus:ring-red-500'
+                        : 'border-slate-300 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500'
+                    }`}
                   >
                     {albums.map((alb) => (
                       <option key={alb.id} value={alb.id}>
@@ -227,6 +271,9 @@ export default function CollectionsList() {
                       </option>
                     ))}
                   </select>
+                )}
+                {fieldErrors.albumId && (
+                  <p className="mt-1 text-xs font-medium text-red-600">{fieldErrors.albumId}</p>
                 )}
               </div>
 

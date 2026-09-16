@@ -1,7 +1,7 @@
 import { useEffect, useState, type FormEvent } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
-import { api } from '../services/api'
+import { api, getFieldErrors } from '../services/api'
 import type { Album, Collection, DuplicatedSticker, Sticker } from '../types'
 
 export default function CollectionDetail() {
@@ -19,7 +19,13 @@ export default function CollectionDetail() {
   const [showAddModal, setShowAddModal] = useState(false)
   const [selectedStickerId, setSelectedStickerId] = useState<number | ''>('')
   const [quantity, setQuantity] = useState(1)
+  const [stickerErrors, setStickerErrors] = useState<Record<string, string>>({})
+  const [modalError, setModalError] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
+
+  // Inline confirmations
+  const [removingStickerId, setRemovingStickerId] = useState<number | null>(null)
+  const [confirmDeleteCollection, setConfirmDeleteCollection] = useState(false)
 
   const { user } = useAuth()
   const navigate = useNavigate()
@@ -63,7 +69,19 @@ export default function CollectionDetail() {
     e.preventDefault()
     if (!selectedStickerId) return
     setSubmitting(true)
-    setError(null)
+    setModalError(null)
+    setStickerErrors({})
+
+    const localErrors: Record<string, string> = {}
+    if (!selectedStickerId) localErrors.stickerId = 'Debes seleccionar una lámina'
+    if (!quantity || quantity < 1) localErrors.quantity = 'La cantidad debe ser al menos 1'
+
+    if (Object.keys(localErrors).length > 0) {
+      setStickerErrors(localErrors)
+      setSubmitting(false)
+      return
+    }
+
     try {
       await api(`/collections/${id}/stickers`, {
         method: 'POST',
@@ -75,9 +93,15 @@ export default function CollectionDetail() {
       })
       setShowAddModal(false)
       setQuantity(1)
+      setStickerErrors({})
       await loadAll()
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Error al añadir lámina')
+      const zErrors = getFieldErrors(err)
+      if (Object.keys(zErrors).length > 0) {
+        setStickerErrors(zErrors)
+      } else {
+        setModalError(err instanceof Error ? err.message : 'Error al añadir lámina')
+      }
     } finally {
       setSubmitting(false)
     }
@@ -96,17 +120,17 @@ export default function CollectionDetail() {
       })
       await loadAll()
     } catch (err: unknown) {
-      alert(err instanceof Error ? err.message : 'Error al actualizar cantidad')
+      setError(err instanceof Error ? err.message : 'Error al actualizar cantidad')
     }
   }
 
   const handleRemoveSticker = async (stickerId: number) => {
-    if (!confirm('¿Quitar esta lámina de tu colección?')) return
     try {
       await api(`/collections/${id}/stickers/${stickerId}`, { method: 'DELETE' })
+      setRemovingStickerId(null)
       await loadAll()
     } catch (err: unknown) {
-      alert(err instanceof Error ? err.message : 'Error al quitar lámina')
+      setError(err instanceof Error ? err.message : 'Error al quitar lámina')
     }
   }
 
@@ -119,17 +143,18 @@ export default function CollectionDetail() {
       })
       setCollection((prev) => (prev ? { ...prev, isPublic: updated.isPublic } : null))
     } catch (err: unknown) {
-      alert(err instanceof Error ? err.message : 'Error al cambiar visibilidad')
+      setError(err instanceof Error ? err.message : 'Error al cambiar visibilidad')
     }
   }
 
   const handleDeleteCollection = async () => {
-    if (!confirm('¿Seguro que deseas eliminar esta colección?')) return
+    if (!collection) return
     try {
       await api(`/collections/${id}`, { method: 'DELETE' })
       navigate('/collections')
     } catch (err: unknown) {
-      alert(err instanceof Error ? err.message : 'Error al eliminar')
+      setError(err instanceof Error ? err.message : 'Error al eliminar colección')
+      setConfirmDeleteCollection(false)
     }
   }
 
@@ -180,7 +205,11 @@ export default function CollectionDetail() {
           {isOwner && (
             <div className="flex flex-wrap items-center gap-3">
               <button
-                onClick={() => setShowAddModal(true)}
+                onClick={() => {
+                  setModalError(null)
+                  setStickerErrors({})
+                  setShowAddModal(true)
+                }}
                 className="rounded-lg bg-indigo-600 px-4 py-2 text-xs font-bold text-white shadow hover:bg-indigo-500"
               >
                 + Pegar Lámina
@@ -191,15 +220,40 @@ export default function CollectionDetail() {
               >
                 Hacer {collection.isPublic ? 'Privada' : 'Pública'}
               </button>
-              <button
-                onClick={handleDeleteCollection}
-                className="rounded-lg px-2 py-2 text-xs font-semibold text-red-600 hover:underline"
-              >
-                Eliminar
-              </button>
+              {!confirmDeleteCollection && (
+                <button
+                  onClick={() => setConfirmDeleteCollection(true)}
+                  className="rounded-lg px-2 py-2 text-xs font-semibold text-red-600 hover:underline"
+                >
+                  Eliminar
+                </button>
+              )}
             </div>
           )}
         </div>
+
+        {/* Alerta de confirmación de eliminación de colección */}
+        {confirmDeleteCollection && (
+          <div className="mt-4 rounded-xl border border-red-200 bg-red-50 p-4">
+            <p className="text-sm font-bold text-red-800">
+              ¿Seguro que deseas eliminar la colección "{collection.name}"? Esta acción no se puede deshacer.
+            </p>
+            <div className="mt-3 flex space-x-3">
+              <button
+                onClick={handleDeleteCollection}
+                className="rounded-lg bg-red-600 px-3 py-1.5 text-xs font-bold text-white hover:bg-red-700"
+              >
+                Sí, eliminar colección
+              </button>
+              <button
+                onClick={() => setConfirmDeleteCollection(false)}
+                className="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50"
+              >
+                Cancelar
+              </button>
+            </div>
+          </div>
+        )}
 
         {/* Progress Bar */}
         <div className="mt-6 border-t border-slate-100 pt-5">
@@ -267,59 +321,83 @@ export default function CollectionDetail() {
                   key={item.id}
                   className="relative flex flex-col justify-between overflow-hidden rounded-xl border border-slate-200 bg-white p-3 shadow-sm"
                 >
-                  <div className="flex items-center justify-between">
-                    <span className="rounded bg-slate-900 px-1.5 py-0.5 text-xs font-black text-white">
-                      #{item.sticker.number}
-                    </span>
-                    {item.quantity > 1 && (
-                      <span className="rounded bg-amber-500 px-1.5 py-0.5 text-[10px] font-black text-white">
-                        x{item.quantity}
-                      </span>
-                    )}
-                  </div>
-
-                  <div className="my-2 flex h-20 w-full items-center justify-center overflow-hidden rounded bg-slate-50">
-                    {item.sticker.imageUrl ? (
-                      <img
-                        src={item.sticker.imageUrl}
-                        alt={item.sticker.name}
-                        className="h-full w-full object-cover"
-                      />
-                    ) : (
-                      <span className="text-xs font-bold text-slate-300">
+                  <div>
+                    <div className="flex items-center justify-between">
+                      <span className="rounded bg-slate-900 px-1.5 py-0.5 text-xs font-black text-white">
                         #{item.sticker.number}
                       </span>
-                    )}
-                  </div>
+                      {item.quantity > 1 && (
+                        <span className="rounded bg-amber-500 px-1.5 py-0.5 text-[10px] font-black text-white">
+                          x{item.quantity}
+                        </span>
+                      )}
+                    </div>
 
-                  <p className="truncate text-center text-xs font-bold text-slate-800">
-                    {item.sticker.name}
-                  </p>
+                    <div className="my-2 flex h-20 w-full items-center justify-center overflow-hidden rounded bg-slate-50">
+                      {item.sticker.imageUrl ? (
+                        <img
+                          src={item.sticker.imageUrl}
+                          alt={item.sticker.name}
+                          className="h-full w-full object-cover"
+                        />
+                      ) : (
+                        <span className="text-xs font-bold text-slate-300">
+                          #{item.sticker.number}
+                        </span>
+                      )}
+                    </div>
+
+                    <p className="truncate text-center text-xs font-bold text-slate-800">
+                      {item.sticker.name}
+                    </p>
+                  </div>
 
                   {/* Owner controls */}
                   {isOwner && (
-                    <div className="mt-2 flex items-center justify-between border-t border-slate-100 pt-2">
-                      <div className="flex items-center space-x-1">
-                        <button
-                          onClick={() => handleUpdateQuantity(item.stickerId, item.quantity, -1)}
-                          className="h-5 w-5 rounded bg-slate-100 text-xs font-bold hover:bg-slate-200"
-                        >
-                          -
-                        </button>
-                        <span className="text-xs font-bold">{item.quantity}</span>
-                        <button
-                          onClick={() => handleUpdateQuantity(item.stickerId, item.quantity, 1)}
-                          className="h-5 w-5 rounded bg-slate-100 text-xs font-bold hover:bg-slate-200"
-                        >
-                          +
-                        </button>
-                      </div>
-                      <button
-                        onClick={() => handleRemoveSticker(item.stickerId)}
-                        className="text-[10px] text-red-500 hover:underline"
-                      >
-                        Quitar
-                      </button>
+                    <div className="mt-2 border-t border-slate-100 pt-2">
+                      {removingStickerId === item.stickerId ? (
+                        <div className="text-center">
+                          <p className="text-[10px] font-bold text-red-600">¿Quitar lámina?</p>
+                          <div className="mt-1 flex justify-center space-x-1">
+                            <button
+                              onClick={() => handleRemoveSticker(item.stickerId)}
+                              className="rounded bg-red-600 px-1.5 py-0.5 text-[10px] font-bold text-white hover:bg-red-700"
+                            >
+                              Sí
+                            </button>
+                            <button
+                              onClick={() => setRemovingStickerId(null)}
+                              className="rounded bg-slate-100 px-1.5 py-0.5 text-[10px] font-medium text-slate-600 hover:bg-slate-200"
+                            >
+                              No
+                            </button>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center space-x-1">
+                            <button
+                              onClick={() => handleUpdateQuantity(item.stickerId, item.quantity, -1)}
+                              className="h-5 w-5 rounded bg-slate-100 text-xs font-bold hover:bg-slate-200"
+                            >
+                              -
+                            </button>
+                            <span className="text-xs font-bold">{item.quantity}</span>
+                            <button
+                              onClick={() => handleUpdateQuantity(item.stickerId, item.quantity, 1)}
+                              className="h-5 w-5 rounded bg-slate-100 text-xs font-bold hover:bg-slate-200"
+                            >
+                              +
+                            </button>
+                          </div>
+                          <button
+                            onClick={() => setRemovingStickerId(item.stickerId)}
+                            className="text-[10px] text-red-500 hover:underline"
+                          >
+                            Quitar
+                          </button>
+                        </div>
+                      )}
                     </div>
                   )}
                 </div>
@@ -389,15 +467,27 @@ export default function CollectionDetail() {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
           <div className="w-full max-w-md rounded-xl bg-white p-6 shadow-xl">
             <h3 className="text-lg font-bold text-slate-900">Pegar Lámina en tu Colección</h3>
-            <form onSubmit={handleAddSticker} className="mt-4 space-y-4">
+
+            {modalError && (
+              <div className="mt-3 rounded-lg bg-red-50 p-2.5 text-xs text-red-700">{modalError}</div>
+            )}
+
+            <form noValidate onSubmit={handleAddSticker} className="mt-4 space-y-4">
               <div>
                 <label className="block text-xs font-semibold uppercase text-slate-600">
                   Seleccionar Lámina
                 </label>
                 <select
                   value={selectedStickerId}
-                  onChange={(e) => setSelectedStickerId(Number(e.target.value))}
-                  className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none"
+                  onChange={(e) => {
+                    setSelectedStickerId(Number(e.target.value))
+                    if (stickerErrors.stickerId) setStickerErrors((prev) => ({ ...prev, stickerId: '' }))
+                  }}
+                  className={`mt-1 w-full rounded-lg border px-3 py-2 text-sm focus:outline-none ${
+                    stickerErrors.stickerId
+                      ? 'border-red-500 focus:border-red-500 focus:ring-1 focus:ring-red-500'
+                      : 'border-slate-300 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500'
+                  }`}
                 >
                   {albumStickers.map((st) => (
                     <option key={st.id} value={st.id}>
@@ -405,6 +495,9 @@ export default function CollectionDetail() {
                     </option>
                   ))}
                 </select>
+                {stickerErrors.stickerId && (
+                  <p className="mt-1 text-xs font-medium text-red-600">{stickerErrors.stickerId}</p>
+                )}
               </div>
 
               <div>
@@ -413,12 +506,21 @@ export default function CollectionDetail() {
                 </label>
                 <input
                   type="number"
-                  required
                   min={1}
                   value={quantity}
-                  onChange={(e) => setQuantity(Number(e.target.value))}
-                  className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none"
+                  onChange={(e) => {
+                    setQuantity(Number(e.target.value))
+                    if (stickerErrors.quantity) setStickerErrors((prev) => ({ ...prev, quantity: '' }))
+                  }}
+                  className={`mt-1 w-full rounded-lg border px-3 py-2 text-sm focus:outline-none ${
+                    stickerErrors.quantity
+                      ? 'border-red-500 focus:border-red-500 focus:ring-1 focus:ring-red-500'
+                      : 'border-slate-300 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500'
+                  }`}
                 />
+                {stickerErrors.quantity && (
+                  <p className="mt-1 text-xs font-medium text-red-600">{stickerErrors.quantity}</p>
+                )}
                 {quantity > 1 && (
                   <p className="mt-1 text-[11px] font-semibold text-amber-600">
                     Se marcará automáticamente como repetida ({quantity - 1} repetidas para intercambio)

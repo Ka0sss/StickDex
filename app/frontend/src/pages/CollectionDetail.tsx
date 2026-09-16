@@ -15,10 +15,13 @@ export default function CollectionDetail() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
+  // Zoom / Card Inspector Modal
+  const [inspectedSticker, setInspectedSticker] = useState<Sticker | null>(null)
+
   // Add Sticker Modal
   const [showAddModal, setShowAddModal] = useState(false)
   const [selectedStickerId, setSelectedStickerId] = useState<number | ''>('')
-  const [quantity, setQuantity] = useState(1)
+  const [quantity, setQuantity] = useState<number | ''>(1)
   const [stickerErrors, setStickerErrors] = useState<Record<string, string>>({})
   const [modalError, setModalError] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
@@ -44,7 +47,7 @@ export default function CollectionDetail() {
       setMissingStickers(missing)
       setDuplicateStickers(duplicates)
 
-      // If owner, also load full album stickers for adding
+      // If owner, load album stickers for adding
       if (col.albumId) {
         const fullAlbum = await api<Album & { stickers: Sticker[] }>(`/albums/${col.albumId}`)
         setAlbumStickers(fullAlbum.stickers || [])
@@ -74,7 +77,7 @@ export default function CollectionDetail() {
 
     const localErrors: Record<string, string> = {}
     if (!selectedStickerId) localErrors.stickerId = 'Debes seleccionar una lámina'
-    if (!quantity || quantity < 1) localErrors.quantity = 'La cantidad debe ser al menos 1'
+    if (!quantity || Number(quantity) < 1) localErrors.quantity = 'La cantidad debe ser al menos 1'
 
     if (Object.keys(localErrors).length > 0) {
       setStickerErrors(localErrors)
@@ -158,50 +161,76 @@ export default function CollectionDetail() {
     }
   }
 
-  if (loading) return <div className="py-12 text-center text-slate-500">Cargando colección...</div>
-  if (error) return <div className="py-12 text-center text-red-500">{error}</div>
-  if (!collection) return <div className="py-12 text-center text-slate-500">Colección no encontrada</div>
+  if (loading) {
+    return (
+      <div className="py-24 text-center">
+        <div className="inline-block h-8 w-8 animate-spin rounded-full border-4 border-indigo-500 border-t-transparent" />
+        <p className="mt-3 text-xs font-bold tracking-wider text-slate-400">CARGANDO COLECCIÓN...</p>
+      </div>
+    )
+  }
+
+  if (error) {
+    return (
+      <div className="py-20 text-center">
+        <p className="text-lg font-bold text-red-400">{error}</p>
+        <Link to="/collections" className="mt-4 inline-block text-xs font-bold text-indigo-400 hover:underline">
+          ← Volver a colecciones
+        </Link>
+      </div>
+    )
+  }
+
+  if (!collection) return null
 
   const progress = collection.progress || { collectedCount: 0, totalStickers: 0, percentage: 0 }
+  const isFinished = progress.percentage === 100
 
   return (
     <div>
-      <Link to="/collections" className="text-xs font-semibold text-indigo-600 hover:underline">
-        ← Volver a Colecciones
+      {/* Breadcrumb */}
+      <Link
+        to="/collections"
+        className="inline-flex items-center space-x-1.5 text-xs font-bold uppercase tracking-wider text-slate-400 transition hover:text-indigo-400"
+      >
+        <span>←</span>
+        <span>Volver a Colecciones</span>
       </Link>
 
-      {/* Header */}
-      <div className="mt-4 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-        <div className="flex flex-col justify-between gap-4 md:flex-row md:items-center">
+      {/* Deluxe Collection Header with Progress Trophy */}
+      <div className="mt-4 rounded-3xl border border-binder-700/80 bg-gradient-to-br from-binder-900 via-binder-900 to-binder-950 p-6 shadow-2xl shadow-black/60 sm:p-8">
+        <div className="flex flex-col justify-between gap-6 md:flex-row md:items-center">
           <div>
-            <div className="flex items-center space-x-2">
+            <div className="flex items-center space-x-2.5">
               <span
-                className={`rounded-full px-2.5 py-0.5 text-xs font-bold ${
+                className={`rounded-lg px-2.5 py-1 text-[10px] font-black uppercase tracking-wider ${
                   collection.isPublic
-                    ? 'bg-emerald-50 text-emerald-700'
-                    : 'bg-amber-50 text-amber-700'
+                    ? 'border border-emerald-500/30 bg-emerald-950/50 text-emerald-400'
+                    : 'border border-amber-500/30 bg-amber-950/50 text-amber-400'
                 }`}
               >
-                {collection.isPublic ? 'Pública' : 'Privada'}
+                {collection.isPublic ? 'Colección Pública' : 'Colección Privada'}
               </span>
-              <span className="text-xs text-slate-500">
-                Coleccionista: <b className="text-slate-800">{collection.user?.username}</b>
+              <span className="text-xs text-slate-400">
+                Coleccionista: <b className="text-white">{collection.user?.username}</b>
               </span>
             </div>
 
-            <h1 className="mt-2 text-3xl font-black text-slate-900">{collection.name}</h1>
-            <p className="mt-1 text-sm text-slate-600">
-              Álbum:{' '}
+            <h1 className="mt-3 font-display text-3xl font-black tracking-tight text-white sm:text-4xl">
+              {collection.name}
+            </h1>
+            <p className="mt-1 text-sm font-semibold text-slate-400">
+              Álbum Base:{' '}
               <Link
                 to={`/albums/${collection.albumId}`}
-                className="font-bold text-indigo-600 hover:underline"
+                className="text-amber-400 transition hover:underline"
               >
                 {collection.album?.name}
               </Link>
             </p>
           </div>
 
-          {/* Owner actions */}
+          {/* Owner Action Buttons */}
           {isOwner && (
             <div className="flex flex-wrap items-center gap-3">
               <button
@@ -210,20 +239,21 @@ export default function CollectionDetail() {
                   setStickerErrors({})
                   setShowAddModal(true)
                 }}
-                className="rounded-lg bg-indigo-600 px-4 py-2 text-xs font-bold text-white shadow hover:bg-indigo-500"
+                className="inline-flex items-center space-x-2 rounded-xl bg-gradient-to-r from-indigo-500 to-indigo-600 px-4 py-2.5 text-xs font-black uppercase tracking-wider text-white shadow-lg shadow-indigo-500/20 hover:brightness-110"
               >
-                + Pegar Lámina
+                <span>+</span>
+                <span>Pegar Lámina</span>
               </button>
               <button
                 onClick={handleTogglePublic}
-                className="rounded-lg border border-slate-300 px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50"
+                className="rounded-xl border border-binder-700 bg-binder-800/80 px-3.5 py-2 text-xs font-bold text-slate-300 hover:bg-binder-700"
               >
                 Hacer {collection.isPublic ? 'Privada' : 'Pública'}
               </button>
               {!confirmDeleteCollection && (
                 <button
                   onClick={() => setConfirmDeleteCollection(true)}
-                  className="rounded-lg px-2 py-2 text-xs font-semibold text-red-600 hover:underline"
+                  className="rounded-xl px-3 py-2 text-xs font-bold text-red-400 hover:bg-red-950/30"
                 >
                   Eliminar
                 </button>
@@ -232,22 +262,22 @@ export default function CollectionDetail() {
           )}
         </div>
 
-        {/* Alerta de confirmación de eliminación de colección */}
+        {/* Inline delete confirmation */}
         {confirmDeleteCollection && (
-          <div className="mt-4 rounded-xl border border-red-200 bg-red-50 p-4">
-            <p className="text-sm font-bold text-red-800">
-              ¿Seguro que deseas eliminar la colección "{collection.name}"? Esta acción no se puede deshacer.
+          <div className="mt-5 rounded-2xl border border-red-500/50 bg-red-950/60 p-4">
+            <p className="text-xs font-bold text-red-200">
+              ¿Seguro que deseas eliminar esta colección y todo su historial de láminas?
             </p>
             <div className="mt-3 flex space-x-3">
               <button
                 onClick={handleDeleteCollection}
-                className="rounded-lg bg-red-600 px-3 py-1.5 text-xs font-bold text-white hover:bg-red-700"
+                className="rounded-xl bg-red-600 px-3 py-1.5 text-xs font-bold text-white hover:bg-red-500"
               >
-                Sí, eliminar colección
+                Sí, eliminar
               </button>
               <button
                 onClick={() => setConfirmDeleteCollection(false)}
-                className="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50"
+                className="rounded-xl border border-binder-700 bg-binder-900 px-3 py-1.5 text-xs font-semibold text-slate-300 hover:bg-binder-800"
               >
                 Cancelar
               </button>
@@ -255,119 +285,149 @@ export default function CollectionDetail() {
           </div>
         )}
 
-        {/* Progress Bar */}
-        <div className="mt-6 border-t border-slate-100 pt-5">
-          <div className="flex items-center justify-between text-sm">
-            <span className="font-semibold text-slate-700">Progreso del Álbum</span>
-            <span className="font-bold text-indigo-600">
-              {progress.percentage}% ({progress.collectedCount} de {progress.totalStickers} láminas)
-            </span>
+        {/* Progress Gauge */}
+        <div className="mt-8 border-t border-binder-800/80 pt-6">
+          <div className="flex flex-wrap items-center justify-between gap-2 text-sm">
+            <div className="flex items-center space-x-2">
+              <span className="text-base">{isFinished ? '🏆' : '⭐'}</span>
+              <span className="font-display font-bold uppercase tracking-wider text-slate-300">
+                {isFinished ? '¡Álbum Completado!' : 'Progreso de Colección'}
+              </span>
+            </div>
+            <div className="font-mono text-base font-black text-amber-400">
+              {progress.percentage}%{' '}
+              <span className="text-xs font-medium text-slate-400">
+                ({progress.collectedCount} de {progress.totalStickers} láminas pegadas)
+              </span>
+            </div>
           </div>
-          <div className="mt-2 h-3 w-full overflow-hidden rounded-full bg-slate-100">
+
+          <div className="mt-3 h-3.5 w-full overflow-hidden rounded-full bg-binder-950 border border-binder-800">
             <div
-              className="h-full rounded-full bg-indigo-600 transition-all duration-500"
-              style={{ width: `${progress.percentage}%` }}
+              className={`h-full rounded-full transition-all duration-700 shadow-md ${
+                isFinished
+                  ? 'bg-gradient-to-r from-amber-400 to-amber-500 shadow-amber-500/50'
+                  : 'bg-gradient-to-r from-indigo-500 via-indigo-400 to-emerald-400 shadow-indigo-500/50'
+              }`}
+              style={{ width: `${Math.min(progress.percentage, 100)}%` }}
             />
           </div>
         </div>
       </div>
 
       {/* Tabs */}
-      <div className="mt-8 flex border-b border-slate-200">
+      <div className="mt-8 flex border-b border-binder-800">
         <button
           onClick={() => setActiveTab('collected')}
-          className={`border-b-2 px-5 py-3 text-sm font-bold transition ${
+          className={`border-b-2 px-5 py-3 text-xs font-black uppercase tracking-wider transition ${
             activeTab === 'collected'
-              ? 'border-indigo-600 text-indigo-600'
-              : 'border-transparent text-slate-500 hover:text-slate-800'
+              ? 'border-indigo-500 text-indigo-400'
+              : 'border-transparent text-slate-400 hover:text-white'
           }`}
         >
           Láminas Pegadas ({collection.stickers?.length || 0})
         </button>
         <button
           onClick={() => setActiveTab('missing')}
-          className={`border-b-2 px-5 py-3 text-sm font-bold transition ${
+          className={`border-b-2 px-5 py-3 text-xs font-black uppercase tracking-wider transition ${
             activeTab === 'missing'
-              ? 'border-indigo-600 text-indigo-600'
-              : 'border-transparent text-slate-500 hover:text-slate-800'
+              ? 'border-rose-500 text-rose-400'
+              : 'border-transparent text-slate-400 hover:text-white'
           }`}
         >
           Faltantes ({missingStickers.length})
         </button>
         <button
           onClick={() => setActiveTab('duplicates')}
-          className={`border-b-2 px-5 py-3 text-sm font-bold transition ${
+          className={`border-b-2 px-5 py-3 text-xs font-black uppercase tracking-wider transition ${
             activeTab === 'duplicates'
-              ? 'border-indigo-600 text-indigo-600'
-              : 'border-transparent text-slate-500 hover:text-slate-800'
+              ? 'border-amber-500 text-amber-400'
+              : 'border-transparent text-slate-400 hover:text-white'
           }`}
         >
-          Repetidas ({duplicateStickers.length})
+          Repetidas para Cambio ({duplicateStickers.length})
         </button>
       </div>
 
-      {/* Tab Content: Láminas Pegadas */}
+      {/* Tab 1: Láminas Pegadas (3:4 Ratio, Grandes, Nítidas) */}
       {activeTab === 'collected' && (
         <div className="mt-6">
           {!collection.stickers || collection.stickers.length === 0 ? (
-            <div className="rounded-xl border border-dashed border-slate-300 py-12 text-center text-sm text-slate-500">
-              Aún no tienes láminas pegadas en esta colección.
-              {isOwner && ' ¡Haz clic en "+ Pegar Lámina" para comenzar!'}
+            <div className="rounded-2xl border border-dashed border-binder-700/80 bg-binder-900/40 py-16 text-center text-sm text-slate-400">
+              Aún no tienes láminas pegadas en este álbum.
+              {isOwner && ' ¡Haz clic en "+ Pegar Lámina" para empezar a llenar tu álbum!'}
             </div>
           ) : (
-            <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6">
+            <div className="grid grid-cols-2 gap-5 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-5">
               {collection.stickers.map((item) => (
                 <div
                   key={item.id}
-                  className="relative flex flex-col justify-between overflow-hidden rounded-xl border border-slate-200 bg-white p-3 shadow-sm"
+                  className="group relative flex flex-col justify-between overflow-hidden rounded-2xl border border-binder-700/80 bg-binder-900/90 p-3 shadow-card transition-all duration-300 hover:-translate-y-1.5 hover:border-indigo-500/60 hover:shadow-card-hover"
                 >
-                  <div>
-                    <div className="flex items-center justify-between">
-                      <span className="rounded bg-slate-900 px-1.5 py-0.5 text-xs font-black text-white">
-                        #{item.sticker.number}
-                      </span>
-                      {item.quantity > 1 && (
-                        <span className="rounded bg-amber-500 px-1.5 py-0.5 text-[10px] font-black text-white">
-                          x{item.quantity}
-                        </span>
-                      )}
-                    </div>
-
-                    <div className="my-2 flex h-20 w-full items-center justify-center overflow-hidden rounded bg-slate-50">
-                      {item.sticker.imageUrl ? (
-                        <img
-                          src={item.sticker.imageUrl}
-                          alt={item.sticker.name}
-                          className="h-full w-full object-cover"
-                        />
-                      ) : (
-                        <span className="text-xs font-bold text-slate-300">
+                  {/* Card en proporción 3:4 con soporte de zoom al hacer clic */}
+                  <div
+                    onClick={() => setInspectedSticker(item.sticker)}
+                    className="relative aspect-[3/4] w-full cursor-zoom-in overflow-hidden rounded-xl bg-binder-950 shadow-inner"
+                  >
+                    {item.sticker.imageUrl ? (
+                      <img
+                        src={item.sticker.imageUrl}
+                        alt={item.sticker.name}
+                        className="h-full w-full object-contain transition duration-500 group-hover:scale-105"
+                      />
+                    ) : (
+                      <div className="flex h-full flex-col items-center justify-center p-3 text-center">
+                        <span className="font-mono text-3xl font-black text-slate-700">
                           #{item.sticker.number}
                         </span>
-                      )}
-                    </div>
+                        <p className="mt-2 font-display text-xs font-bold text-slate-400">
+                          {item.sticker.name}
+                        </p>
+                      </div>
+                    )}
 
-                    <p className="truncate text-center text-xs font-bold text-slate-800">
-                      {item.sticker.name}
-                    </p>
+                    {/* Badge de Duplicada estilo moneda dorada */}
+                    {item.quantity > 1 && (
+                      <div className="absolute right-2 top-2 flex h-7 items-center justify-center rounded-full bg-gradient-to-r from-amber-400 to-amber-500 px-2 shadow-lg shadow-amber-500/30">
+                        <span className="font-mono text-xs font-black text-slate-950">
+                          ×{item.quantity}
+                        </span>
+                      </div>
+                    )}
+
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 transition-opacity group-hover:opacity-100" />
+                    <span className="absolute bottom-2 left-2 right-2 text-center text-[10px] font-bold text-white opacity-0 transition-opacity group-hover:opacity-100">
+                      🔍 Ampliar
+                    </span>
                   </div>
 
-                  {/* Owner controls */}
+                  {/* Nombre y datos del cromo */}
+                  <div className="mt-3 flex items-center justify-between">
+                    <span className="font-mono text-xs font-black text-amber-400">
+                      #{item.sticker.number < 10 ? `0${item.sticker.number}` : item.sticker.number}
+                    </span>
+                    <p className="truncate px-2 text-center text-xs font-extrabold text-slate-200" title={item.sticker.name}>
+                      {item.sticker.name}
+                    </p>
+                    <span className="text-[10px] text-slate-500">x{item.quantity}</span>
+                  </div>
+
+                  {/* Stepper para dueño */}
                   {isOwner && (
-                    <div className="mt-2 border-t border-slate-100 pt-2">
+                    <div className="mt-2.5 border-t border-binder-800/80 pt-2">
                       {removingStickerId === item.stickerId ? (
                         <div className="text-center">
-                          <p className="text-[10px] font-bold text-red-600">¿Quitar lámina?</p>
-                          <div className="mt-1 flex justify-center space-x-1">
+                          <p className="text-[10px] font-bold text-rose-400">¿Quitar del álbum?</p>
+                          <div className="mt-1 flex justify-center space-x-1.5">
                             <button
                               onClick={() => handleRemoveSticker(item.stickerId)}
-                              className="rounded bg-red-600 px-1.5 py-0.5 text-[10px] font-bold text-white hover:bg-red-700"
+                              className="rounded bg-rose-600 px-2 py-0.5 text-[10px] font-bold text-white hover:bg-rose-500"
                             >
                               Sí
                             </button>
                             <button
                               onClick={() => setRemovingStickerId(null)}
-                              className="rounded bg-slate-100 px-1.5 py-0.5 text-[10px] font-medium text-slate-600 hover:bg-slate-200"
+                              className="rounded bg-binder-800 px-2 py-0.5 text-[10px] font-semibold text-slate-400 hover:bg-binder-700"
                             >
                               No
                             </button>
@@ -378,21 +438,26 @@ export default function CollectionDetail() {
                           <div className="flex items-center space-x-1">
                             <button
                               onClick={() => handleUpdateQuantity(item.stickerId, item.quantity, -1)}
-                              className="h-5 w-5 rounded bg-slate-100 text-xs font-bold hover:bg-slate-200"
+                              className="flex h-6 w-6 items-center justify-center rounded-lg bg-binder-800 text-xs font-black text-slate-300 transition hover:bg-binder-700"
+                              title="Restar una copia"
                             >
                               -
                             </button>
-                            <span className="text-xs font-bold">{item.quantity}</span>
+                            <span className="w-5 text-center font-mono text-xs font-black text-white">
+                              {item.quantity}
+                            </span>
                             <button
                               onClick={() => handleUpdateQuantity(item.stickerId, item.quantity, 1)}
-                              className="h-5 w-5 rounded bg-slate-100 text-xs font-bold hover:bg-slate-200"
+                              className="flex h-6 w-6 items-center justify-center rounded-lg bg-binder-800 text-xs font-black text-amber-400 transition hover:bg-binder-700"
+                              title="Sumar una copia (repetida)"
                             >
                               +
                             </button>
                           </div>
+
                           <button
                             onClick={() => setRemovingStickerId(item.stickerId)}
-                            className="text-[10px] text-red-500 hover:underline"
+                            className="text-[10px] font-bold text-slate-500 hover:text-rose-400 hover:underline"
                           >
                             Quitar
                           </button>
@@ -407,23 +472,47 @@ export default function CollectionDetail() {
         </div>
       )}
 
-      {/* Tab Content: Láminas Faltantes */}
+      {/* Tab 2: Láminas Faltantes (Casillas vacías de álbum físico) */}
       {activeTab === 'missing' && (
         <div className="mt-6">
           {missingStickers.length === 0 ? (
-            <div className="rounded-xl border border-dashed border-emerald-300 bg-emerald-50 py-12 text-center text-sm font-bold text-emerald-800">
-              🎉 ¡Felicidades! ¡Colección completada! No te falta ninguna lámina.
+            <div className="rounded-3xl border border-emerald-500/40 bg-emerald-950/20 py-16 text-center shadow-lg">
+              <span className="text-4xl">🎉</span>
+              <h3 className="mt-3 font-display text-2xl font-black text-emerald-400">
+                ¡ÁLBUM 100% COMPLETADO!
+              </h3>
+              <p className="mt-1 text-xs text-emerald-300">
+                No tienes ninguna lámina pendiente por pegar.
+              </p>
             </div>
           ) : (
-            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6">
+            <div className="grid grid-cols-2 gap-5 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-5">
               {missingStickers.map((st) => (
                 <div
                   key={st.id}
-                  className="flex flex-col items-center rounded-xl border border-dashed border-slate-300 bg-white p-3 text-center opacity-75"
+                  className="flex aspect-[3/4] flex-col items-center justify-between rounded-2xl border-2 border-dashed border-binder-700/80 bg-binder-950/40 p-4 text-center transition hover:border-rose-500/50"
                 >
-                  <span className="text-sm font-black text-slate-400">#{st.number}</span>
-                  <p className="mt-1 truncate text-xs font-semibold text-slate-700">{st.name}</p>
-                  <span className="mt-1 text-[10px] text-slate-400">Faltante</span>
+                  <span className="font-mono text-xs font-black text-slate-500">
+                    SLOT #{st.number < 10 ? `0${st.number}` : st.number}
+                  </span>
+
+                  <div className="flex flex-col items-center">
+                    <span className="font-mono text-5xl font-black text-slate-800">
+                      #{st.number}
+                    </span>
+                    <p className="mt-2 font-display text-xs font-bold text-slate-400 line-clamp-2">
+                      {st.name}
+                    </p>
+                    {st.type && (
+                      <span className="mt-1 text-[10px] font-semibold text-slate-500">
+                        {st.type}
+                      </span>
+                    )}
+                  </div>
+
+                  <span className="rounded-md bg-rose-950/40 px-2 py-0.5 text-[9px] font-black uppercase tracking-wider text-rose-400 border border-rose-900/40">
+                    Faltante
+                  </span>
                 </div>
               ))}
             </div>
@@ -431,51 +520,131 @@ export default function CollectionDetail() {
         </div>
       )}
 
-      {/* Tab Content: Láminas Repetidas */}
+      {/* Tab 3: Láminas Repetidas (Pila de intercambio) */}
       {activeTab === 'duplicates' && (
         <div className="mt-6">
           {duplicateStickers.length === 0 ? (
-            <div className="rounded-xl border border-dashed border-slate-300 py-12 text-center text-sm text-slate-500">
-              No tienes láminas repetidas para intercambiar.
+            <div className="rounded-2xl border border-dashed border-binder-700/80 bg-binder-900/40 py-16 text-center text-sm text-slate-400">
+              No tienes láminas repetidas en este momento.
             </div>
           ) : (
-            <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6">
+            <div className="grid grid-cols-2 gap-5 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-5">
               {duplicateStickers.map((dup) => (
                 <div
                   key={dup.stickerId}
-                  className="rounded-xl border border-amber-200 bg-amber-50/40 p-3 text-center shadow-sm"
+                  className="group relative flex flex-col justify-between overflow-hidden rounded-2xl border border-amber-500/40 bg-gradient-to-b from-binder-900 to-amber-950/20 p-3 shadow-card"
                 >
-                  <div className="flex items-center justify-between">
-                    <span className="rounded bg-amber-600 px-1.5 py-0.5 text-xs font-black text-white">
-                      #{dup.number}
-                    </span>
-                    <span className="text-xs font-extrabold text-amber-700">
-                      x{dup.quantity - 1} repetidas
-                    </span>
+                  <div className="relative aspect-[3/4] w-full overflow-hidden rounded-xl bg-binder-950">
+                    {dup.imageUrl ? (
+                      <img src={dup.imageUrl} alt={dup.name} className="h-full w-full object-contain" />
+                    ) : (
+                      <div className="flex h-full items-center justify-center">
+                        <span className="font-mono text-4xl font-black text-amber-500/40">
+                          #{dup.number}
+                        </span>
+                      </div>
+                    )}
+
+                    <div className="absolute top-2 right-2 rounded-lg bg-gradient-to-r from-amber-400 to-amber-500 px-2 py-0.5 shadow-md">
+                      <span className="font-mono text-xs font-black text-slate-950">
+                        +{dup.quantity - 1} para cambio
+                      </span>
+                    </div>
                   </div>
-                  <p className="mt-2 truncate text-xs font-bold text-slate-800">{dup.name}</p>
-                  <p className="text-[10px] text-slate-500">Total: {dup.quantity} copias</p>
+
+                  <div className="mt-3 text-center">
+                    <p className="truncate text-xs font-black text-white" title={dup.name}>
+                      #{dup.number} — {dup.name}
+                    </p>
+                    <p className="mt-0.5 text-[10px] font-semibold text-slate-400">
+                      Total {dup.quantity} copias físicas
+                    </p>
+                  </div>
                 </div>
               ))}
             </div>
           )}
+        </div>
+      )}
+
+      {/* Modal Card Inspector Lightbox */}
+      {inspectedSticker && (
+        <div
+          onClick={() => setInspectedSticker(null)}
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/85 p-4 backdrop-blur-md"
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="relative flex w-full max-w-md flex-col items-center rounded-3xl border border-amber-400/40 bg-binder-900 p-6 shadow-foil"
+          >
+            <button
+              onClick={() => setInspectedSticker(null)}
+              className="absolute right-4 top-4 flex h-8 w-8 items-center justify-center rounded-full bg-binder-800 text-sm font-bold text-slate-300 hover:bg-binder-700 hover:text-white"
+            >
+              ✕
+            </button>
+
+            <span className="text-[10px] font-black uppercase tracking-widest text-amber-400">
+              LÁMINA COLECCIONABLE
+            </span>
+
+            <div className="mt-4 aspect-[3/4] w-full max-w-[320px] overflow-hidden rounded-2xl border-2 border-amber-400/60 bg-binder-950 shadow-2xl">
+              {inspectedSticker.imageUrl ? (
+                <img
+                  src={inspectedSticker.imageUrl}
+                  alt={inspectedSticker.name}
+                  className="h-full w-full object-contain"
+                />
+              ) : (
+                <div className="flex h-full flex-col items-center justify-center">
+                  <span className="font-mono text-6xl font-black text-slate-700">
+                    #{inspectedSticker.number}
+                  </span>
+                  <p className="mt-3 font-display text-lg font-bold text-white">
+                    {inspectedSticker.name}
+                  </p>
+                </div>
+              )}
+            </div>
+
+            <div className="mt-4 text-center">
+              <h3 className="font-display text-2xl font-black text-white">
+                #{inspectedSticker.number} — {inspectedSticker.name}
+              </h3>
+              {inspectedSticker.type && (
+                <span className="mt-2 inline-block rounded-full bg-amber-400/20 px-3 py-1 text-xs font-bold text-amber-300 border border-amber-400/40">
+                  {inspectedSticker.type}
+                </span>
+              )}
+            </div>
+          </div>
         </div>
       )}
 
       {/* Modal Añadir Lámina */}
       {showAddModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-          <div className="w-full max-w-md rounded-xl bg-white p-6 shadow-xl">
-            <h3 className="text-lg font-bold text-slate-900">Pegar Lámina en tu Colección</h3>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 p-4 backdrop-blur-sm">
+          <div className="w-full max-w-md rounded-2xl border border-binder-700 bg-binder-900 p-6 shadow-2xl">
+            <div className="flex items-center justify-between border-b border-binder-800 pb-3">
+              <h3 className="font-display text-xl font-black text-white">Pegar Lámina en tu Álbum</h3>
+              <button
+                onClick={() => setShowAddModal(false)}
+                className="text-slate-400 hover:text-white"
+              >
+                ✕
+              </button>
+            </div>
 
             {modalError && (
-              <div className="mt-3 rounded-lg bg-red-50 p-2.5 text-xs text-red-700">{modalError}</div>
+              <div className="mt-4 rounded-xl border border-red-500/30 bg-red-950/40 p-3 text-xs font-semibold text-red-300">
+                {modalError}
+              </div>
             )}
 
             <form noValidate onSubmit={handleAddSticker} className="mt-4 space-y-4">
               <div>
-                <label className="block text-xs font-semibold uppercase text-slate-600">
-                  Seleccionar Lámina
+                <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-300">
+                  Seleccionar Lámina del Catálogo
                 </label>
                 <select
                   value={selectedStickerId}
@@ -483,10 +652,10 @@ export default function CollectionDetail() {
                     setSelectedStickerId(Number(e.target.value))
                     if (stickerErrors.stickerId) setStickerErrors((prev) => ({ ...prev, stickerId: '' }))
                   }}
-                  className={`mt-1 w-full rounded-lg border px-3 py-2 text-sm focus:outline-none ${
+                  className={`mt-1.5 w-full rounded-xl border bg-binder-950 px-3.5 py-2.5 text-sm text-white focus:outline-none ${
                     stickerErrors.stickerId
-                      ? 'border-red-500 focus:border-red-500 focus:ring-1 focus:ring-red-500'
-                      : 'border-slate-300 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500'
+                      ? 'border-red-500 focus:border-red-500'
+                      : 'border-binder-700 focus:border-indigo-400'
                   }`}
                 >
                   {albumStickers.map((st) => (
@@ -496,52 +665,49 @@ export default function CollectionDetail() {
                   ))}
                 </select>
                 {stickerErrors.stickerId && (
-                  <p className="mt-1 text-xs font-medium text-red-600">{stickerErrors.stickerId}</p>
+                  <p className="mt-1.5 text-xs font-semibold text-red-400">{stickerErrors.stickerId}</p>
                 )}
               </div>
 
               <div>
-                <label className="block text-xs font-semibold uppercase text-slate-600">
-                  Cantidad (copias obtenidas)
+                <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-300">
+                  Cantidad de copias
                 </label>
                 <input
                   type="number"
                   min={1}
                   value={quantity}
                   onChange={(e) => {
-                    setQuantity(Number(e.target.value))
+                    setQuantity(e.target.value === '' ? '' : Number(e.target.value))
                     if (stickerErrors.quantity) setStickerErrors((prev) => ({ ...prev, quantity: '' }))
                   }}
-                  className={`mt-1 w-full rounded-lg border px-3 py-2 text-sm focus:outline-none ${
+                  className={`mt-1.5 w-full rounded-xl border bg-binder-950 px-3.5 py-2.5 text-sm font-mono text-white focus:outline-none ${
                     stickerErrors.quantity
-                      ? 'border-red-500 focus:border-red-500 focus:ring-1 focus:ring-red-500'
-                      : 'border-slate-300 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500'
+                      ? 'border-red-500 focus:border-red-500'
+                      : 'border-binder-700 focus:border-indigo-400'
                   }`}
                 />
-                {stickerErrors.quantity && (
-                  <p className="mt-1 text-xs font-medium text-red-600">{stickerErrors.quantity}</p>
-                )}
-                {quantity > 1 && (
-                  <p className="mt-1 text-[11px] font-semibold text-amber-600">
-                    Se marcará automáticamente como repetida ({quantity - 1} repetidas para intercambio)
+                {Number(quantity) > 1 && (
+                  <p className="mt-1.5 text-[11px] font-bold text-amber-400">
+                    ⚡ Se marcará con {Number(quantity) - 1} repetida(s) para intercambio
                   </p>
                 )}
               </div>
 
-              <div className="mt-6 flex justify-end space-x-3">
+              <div className="mt-6 flex justify-end space-x-3 border-t border-binder-800 pt-4">
                 <button
                   type="button"
                   onClick={() => setShowAddModal(false)}
-                  className="rounded-lg border border-slate-300 px-4 py-2 text-xs font-semibold text-slate-700"
+                  className="rounded-xl border border-binder-700 px-4 py-2 text-xs font-bold text-slate-300 hover:bg-binder-800"
                 >
                   Cancelar
                 </button>
                 <button
                   type="submit"
                   disabled={submitting}
-                  className="rounded-lg bg-indigo-600 px-4 py-2 text-xs font-bold text-white hover:bg-indigo-500 disabled:opacity-50"
+                  className="rounded-xl bg-gradient-to-r from-indigo-500 to-indigo-600 px-5 py-2 text-xs font-black uppercase tracking-wider text-white hover:brightness-110 disabled:opacity-50"
                 >
-                  {submitting ? 'Guardando...' : 'Pegar Lámina'}
+                  {submitting ? 'Pegando...' : 'Pegar en el Álbum'}
                 </button>
               </div>
             </form>

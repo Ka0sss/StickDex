@@ -18,7 +18,6 @@ export default function Register() {
     setGeneralError(null)
     setFieldErrors({})
 
-    // Validación inline inicial
     const errors: Record<string, string> = {}
     if (username.trim().length < 3) errors.username = 'El usuario debe tener al menos 3 caracteres'
     if (!email.trim() || !email.includes('@')) errors.email = 'Introduce un email válido'
@@ -47,19 +46,26 @@ export default function Register() {
 
   return (
     <div className="mx-auto flex max-w-md flex-col justify-center py-12">
-      <div className="rounded-xl border border-slate-200 bg-white p-8 shadow-sm">
-        <h2 className="text-2xl font-bold text-slate-900">Crear cuenta</h2>
-        <p className="mt-1 text-sm text-slate-600">Únete a la comunidad de coleccionistas</p>
+      <div className="rounded-2xl border border-binder-700/80 bg-binder-900/90 p-8 shadow-2xl shadow-black/50 backdrop-blur-sm">
+        <div className="text-center">
+          <span className="inline-flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br from-indigo-500 to-indigo-700 text-2xl shadow-lg shadow-indigo-500/20">
+            📖
+          </span>
+          <h2 className="mt-4 font-display text-2xl font-black text-white">Únete a StickDex</h2>
+          <p className="mt-1 text-xs font-medium text-slate-400">
+            Empieza a coleccionar, pegar láminas e intercambiar repetidas
+          </p>
+        </div>
 
         {generalError && (
-          <div className="mt-4 rounded-lg bg-red-50 p-3 text-sm font-medium text-red-700">
+          <div className="mt-5 rounded-xl border border-red-500/30 bg-red-950/40 p-3 text-xs font-semibold text-red-300">
             {generalError}
           </div>
         )}
 
         <form noValidate onSubmit={handleSubmit} className="mt-6 space-y-4">
           <div>
-            <label className="block text-xs font-semibold uppercase text-slate-600">
+            <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-300">
               Nombre de usuario
             </label>
             <input
@@ -69,20 +75,22 @@ export default function Register() {
                 setUsername(e.target.value)
                 if (fieldErrors.username) setFieldErrors((prev) => ({ ...prev, username: '' }))
               }}
-              className={`mt-1 w-full rounded-lg border px-3 py-2 text-sm shadow-sm focus:outline-none ${
+              className={`mt-1.5 w-full rounded-xl border bg-binder-950/80 px-3.5 py-2.5 text-sm text-white placeholder-slate-500 focus:outline-none ${
                 fieldErrors.username
                   ? 'border-red-500 focus:border-red-500 focus:ring-1 focus:ring-red-500'
-                  : 'border-slate-300 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500'
+                  : 'border-binder-700 focus:border-indigo-400 focus:ring-1 focus:ring-indigo-400'
               }`}
               placeholder="coleccionista123"
             />
             {fieldErrors.username && (
-              <p className="mt-1 text-xs font-medium text-red-600">{fieldErrors.username}</p>
+              <p className="mt-1.5 text-xs font-semibold text-red-400">{fieldErrors.username}</p>
             )}
           </div>
 
           <div>
-            <label className="block text-xs font-semibold uppercase text-slate-600">Email</label>
+            <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-300">
+              Email
+            </label>
             <input
               type="email"
               value={email}
@@ -90,21 +98,21 @@ export default function Register() {
                 setEmail(e.target.value)
                 if (fieldErrors.email) setFieldErrors((prev) => ({ ...prev, email: '' }))
               }}
-              className={`mt-1 w-full rounded-lg border px-3 py-2 text-sm shadow-sm focus:outline-none ${
+              className={`mt-1.5 w-full rounded-xl border bg-binder-950/80 px-3.5 py-2.5 text-sm text-white placeholder-slate-500 focus:outline-none ${
                 fieldErrors.email
                   ? 'border-red-500 focus:border-red-500 focus:ring-1 focus:ring-red-500'
-                  : 'border-slate-300 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500'
+                  : 'border-binder-700 focus:border-indigo-400 focus:ring-1 focus:ring-indigo-400'
               }`}
               placeholder="tu@email.com"
             />
             {fieldErrors.email && (
-              <p className="mt-1 text-xs font-medium text-red-600">{fieldErrors.email}</p>
+              <p className="mt-1.5 text-xs font-semibold text-red-400">{fieldErrors.email}</p>
             )}
           </div>
 
           <div>
-            <label className="block text-xs font-semibold uppercase text-slate-600">
-              Contraseña
+            <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-300">
+              Contraseña (mínimo 8 caracteres)
             </label>
             <input
               type="password"
@@ -113,30 +121,30 @@ export default function Register() {
                 setPassword(e.target.value)
                 if (fieldErrors.password) setFieldErrors((prev) => ({ ...prev, password: '' }))
               }}
-              className={`mt-1 w-full rounded-lg border px-3 py-2 text-sm shadow-sm focus:outline-none ${
+              className={`mt-1.5 w-full rounded-xl border bg-binder-950/80 px-3.5 py-2.5 text-sm text-white placeholder-slate-500 focus:outline-none ${
                 fieldErrors.password
                   ? 'border-red-500 focus:border-red-500 focus:ring-1 focus:ring-red-500'
-                  : 'border-slate-300 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500'
+                  : 'border-binder-700 focus:border-indigo-400 focus:ring-1 focus:ring-indigo-400'
               }`}
-              placeholder="•••••••• (mínimo 8 caracteres)"
+              placeholder="••••••••"
             />
             {fieldErrors.password && (
-              <p className="mt-1 text-xs font-medium text-red-600">{fieldErrors.password}</p>
+              <p className="mt-1.5 text-xs font-semibold text-red-400">{fieldErrors.password}</p>
             )}
           </div>
 
           <button
             type="submit"
             disabled={loading}
-            className="w-full rounded-lg bg-indigo-600 py-2.5 text-sm font-semibold text-white shadow hover:bg-indigo-500 disabled:opacity-50"
+            className="w-full rounded-xl bg-gradient-to-r from-indigo-500 via-indigo-600 to-indigo-700 py-3 text-sm font-black uppercase tracking-wider text-white shadow-lg shadow-indigo-500/20 transition hover:brightness-110 disabled:opacity-50"
           >
-            {loading ? 'Registrando...' : 'Crear cuenta'}
+            {loading ? 'Registrando...' : 'Crear Cuenta'}
           </button>
         </form>
 
-        <p className="mt-6 text-center text-xs text-slate-500">
+        <p className="mt-6 text-center text-xs text-slate-400">
           ¿Ya tienes cuenta?{' '}
-          <Link to="/login" className="font-semibold text-indigo-600 hover:underline">
+          <Link to="/login" className="font-bold text-amber-400 hover:underline">
             Inicia sesión aquí
           </Link>
         </p>

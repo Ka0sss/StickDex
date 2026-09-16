@@ -164,8 +164,8 @@ export default function CollectionDetail() {
   if (loading) {
     return (
       <div className="py-24 text-center">
-        <div className="inline-block h-8 w-8 animate-spin rounded-full border-4 border-indigo-500 border-t-transparent" />
-        <p className="mt-3 text-xs font-bold tracking-wider text-slate-400">CARGANDO COLECCIÓN...</p>
+        <div className="inline-block h-8 w-8 animate-spin rounded-full border-4 border-amber-400 border-t-transparent" />
+        <p className="mt-3 text-xs font-bold tracking-widest text-slate-400">CARGANDO COLECCIÓN...</p>
       </div>
     )
   }
@@ -173,8 +173,8 @@ export default function CollectionDetail() {
   if (error) {
     return (
       <div className="py-20 text-center">
-        <p className="text-lg font-bold text-red-400">{error}</p>
-        <Link to="/collections" className="mt-4 inline-block text-xs font-bold text-indigo-400 hover:underline">
+        <p className="font-display text-xl font-black text-red-400">{error}</p>
+        <Link to="/collections" className="mt-4 inline-block text-xs font-bold text-amber-400 hover:underline">
           ← Volver a colecciones
         </Link>
       </div>
@@ -187,19 +187,21 @@ export default function CollectionDetail() {
   const isFinished = progress.percentage === 100
 
   return (
-    <div>
+    <div className="space-y-8">
       {/* Breadcrumb */}
       <Link
         to="/collections"
-        className="inline-flex items-center space-x-1.5 text-xs font-bold uppercase tracking-wider text-slate-400 transition hover:text-indigo-400"
+        className="inline-flex items-center space-x-2 text-xs font-bold uppercase tracking-wider text-slate-400 transition hover:text-amber-400"
       >
         <span>←</span>
         <span>Volver a Colecciones</span>
       </Link>
 
-      {/* Deluxe Collection Header with Progress Trophy */}
-      <div className="mt-4 rounded-3xl border border-binder-700/80 bg-gradient-to-br from-binder-900 via-binder-900 to-binder-950 p-6 shadow-2xl shadow-black/60 sm:p-8">
-        <div className="flex flex-col justify-between gap-6 md:flex-row md:items-center">
+      {/* Deluxe Collection Header with Stadium Progress Meter */}
+      <div className="relative overflow-hidden rounded-3xl border border-binder-700/90 bg-gradient-to-br from-binder-900 via-binder-900 to-indigo-950/40 p-6 shadow-2xl md:p-8">
+        <div className="absolute right-0 top-0 h-72 w-72 rounded-full bg-amber-500/10 blur-3xl pointer-events-none" />
+
+        <div className="relative z-10 flex flex-col justify-between gap-6 md:flex-row md:items-center">
           <div>
             <div className="flex items-center space-x-2.5">
               <span
@@ -216,14 +218,14 @@ export default function CollectionDetail() {
               </span>
             </div>
 
-            <h1 className="mt-3 font-display text-3xl font-black tracking-tight text-white sm:text-4xl">
+            <h1 className="mt-3 font-display text-3xl font-black tracking-tight text-white sm:text-5xl">
               {collection.name}
             </h1>
             <p className="mt-1 text-sm font-semibold text-slate-400">
-              Álbum Base:{' '}
+              Álbum Oficial:{' '}
               <Link
                 to={`/albums/${collection.albumId}`}
-                className="text-amber-400 transition hover:underline"
+                className="font-bold text-amber-400 transition hover:underline"
               >
                 {collection.album?.name}
               </Link>
@@ -239,21 +241,21 @@ export default function CollectionDetail() {
                   setStickerErrors({})
                   setShowAddModal(true)
                 }}
-                className="inline-flex items-center space-x-2 rounded-xl bg-gradient-to-r from-indigo-500 to-indigo-600 px-4 py-2.5 text-xs font-black uppercase tracking-wider text-white shadow-lg shadow-indigo-500/20 hover:brightness-110"
+                className="inline-flex items-center space-x-2 rounded-xl bg-gradient-to-r from-amber-400 via-amber-500 to-amber-600 px-5 py-2.5 text-xs font-black uppercase tracking-wider text-slate-950 shadow-lg shadow-amber-500/20 hover:brightness-110"
               >
                 <span>+</span>
                 <span>Pegar Lámina</span>
               </button>
               <button
                 onClick={handleTogglePublic}
-                className="rounded-xl border border-binder-700 bg-binder-800/80 px-3.5 py-2 text-xs font-bold text-slate-300 hover:bg-binder-700"
+                className="rounded-xl border border-binder-700 bg-binder-800/80 px-4 py-2 text-xs font-bold text-slate-300 hover:bg-binder-700"
               >
                 Hacer {collection.isPublic ? 'Privada' : 'Pública'}
               </button>
               {!confirmDeleteCollection && (
                 <button
                   onClick={() => setConfirmDeleteCollection(true)}
-                  className="rounded-xl px-3 py-2 text-xs font-bold text-red-400 hover:bg-red-950/30"
+                  className="rounded-xl px-3 py-2 text-xs font-bold text-red-400 hover:bg-red-950/40"
                 >
                   Eliminar
                 </button>
@@ -262,22 +264,22 @@ export default function CollectionDetail() {
           )}
         </div>
 
-        {/* Inline delete confirmation */}
+        {/* Confirmation of Collection Delete */}
         {confirmDeleteCollection && (
-          <div className="mt-5 rounded-2xl border border-red-500/50 bg-red-950/60 p-4">
-            <p className="text-xs font-bold text-red-200">
-              ¿Seguro que deseas eliminar esta colección y todo su historial de láminas?
+          <div className="mt-6 rounded-2xl border border-red-500/50 bg-red-950/70 p-5 shadow-2xl">
+            <p className="text-sm font-bold text-red-200">
+              ⚠️ ¿Seguro que deseas eliminar la colección "{collection.name}"? Se perderá el registro de láminas pegadas.
             </p>
             <div className="mt-3 flex space-x-3">
               <button
                 onClick={handleDeleteCollection}
-                className="rounded-xl bg-red-600 px-3 py-1.5 text-xs font-bold text-white hover:bg-red-500"
+                className="rounded-xl bg-red-600 px-4 py-2 text-xs font-black uppercase tracking-wider text-white hover:bg-red-500"
               >
-                Sí, eliminar
+                Sí, eliminar colección
               </button>
               <button
                 onClick={() => setConfirmDeleteCollection(false)}
-                className="rounded-xl border border-binder-700 bg-binder-900 px-3 py-1.5 text-xs font-semibold text-slate-300 hover:bg-binder-800"
+                className="rounded-xl border border-binder-700 bg-binder-900 px-4 py-2 text-xs font-bold text-slate-300 hover:bg-binder-800"
               >
                 Cancelar
               </button>
@@ -287,11 +289,11 @@ export default function CollectionDetail() {
 
         {/* Progress Gauge */}
         <div className="mt-8 border-t border-binder-800/80 pt-6">
-          <div className="flex flex-wrap items-center justify-between gap-2 text-sm">
-            <div className="flex items-center space-x-2">
-              <span className="text-base">{isFinished ? '🏆' : '⭐'}</span>
-              <span className="font-display font-bold uppercase tracking-wider text-slate-300">
-                {isFinished ? '¡Álbum Completado!' : 'Progreso de Colección'}
+          <div className="flex flex-wrap items-center justify-between gap-3 text-sm">
+            <div className="flex items-center space-x-2.5">
+              <span className="text-xl">{isFinished ? '🏆' : '⭐'}</span>
+              <span className="font-display text-sm font-bold uppercase tracking-wider text-slate-300">
+                {isFinished ? '¡Álbum 100% Completado!' : 'Progreso de Colección'}
               </span>
             </div>
             <div className="font-mono text-base font-black text-amber-400">
@@ -302,12 +304,12 @@ export default function CollectionDetail() {
             </div>
           </div>
 
-          <div className="mt-3 h-3.5 w-full overflow-hidden rounded-full bg-binder-950 border border-binder-800">
+          <div className="mt-3 h-4 w-full overflow-hidden rounded-full bg-binder-950 border border-binder-800 shadow-inner">
             <div
-              className={`h-full rounded-full transition-all duration-700 shadow-md ${
+              className={`h-full rounded-full transition-all duration-700 shadow-lg ${
                 isFinished
                   ? 'bg-gradient-to-r from-amber-400 to-amber-500 shadow-amber-500/50'
-                  : 'bg-gradient-to-r from-indigo-500 via-indigo-400 to-emerald-400 shadow-indigo-500/50'
+                  : 'bg-gradient-to-r from-amber-500 via-amber-400 to-emerald-400 shadow-amber-500/30'
               }`}
               style={{ width: `${Math.min(progress.percentage, 100)}%` }}
             />
@@ -316,12 +318,12 @@ export default function CollectionDetail() {
       </div>
 
       {/* Tabs */}
-      <div className="mt-8 flex border-b border-binder-800">
+      <div className="flex border-b border-binder-800">
         <button
           onClick={() => setActiveTab('collected')}
-          className={`border-b-2 px-5 py-3 text-xs font-black uppercase tracking-wider transition ${
+          className={`border-b-2 px-6 py-3 text-xs font-black uppercase tracking-wider transition ${
             activeTab === 'collected'
-              ? 'border-indigo-500 text-indigo-400'
+              ? 'border-amber-400 text-amber-400'
               : 'border-transparent text-slate-400 hover:text-white'
           }`}
         >
@@ -329,7 +331,7 @@ export default function CollectionDetail() {
         </button>
         <button
           onClick={() => setActiveTab('missing')}
-          className={`border-b-2 px-5 py-3 text-xs font-black uppercase tracking-wider transition ${
+          className={`border-b-2 px-6 py-3 text-xs font-black uppercase tracking-wider transition ${
             activeTab === 'missing'
               ? 'border-rose-500 text-rose-400'
               : 'border-transparent text-slate-400 hover:text-white'
@@ -339,9 +341,9 @@ export default function CollectionDetail() {
         </button>
         <button
           onClick={() => setActiveTab('duplicates')}
-          className={`border-b-2 px-5 py-3 text-xs font-black uppercase tracking-wider transition ${
+          className={`border-b-2 px-6 py-3 text-xs font-black uppercase tracking-wider transition ${
             activeTab === 'duplicates'
-              ? 'border-amber-500 text-amber-400'
+              ? 'border-indigo-400 text-indigo-400'
               : 'border-transparent text-slate-400 hover:text-white'
           }`}
         >
@@ -349,22 +351,26 @@ export default function CollectionDetail() {
         </button>
       </div>
 
-      {/* Tab 1: Láminas Pegadas (3:4 Ratio, Grandes, Nítidas) */}
+      {/* Tab 1: Láminas Pegadas (3:4 Ratio, Proporcionadas y con Acabado de Álbum) */}
       {activeTab === 'collected' && (
-        <div className="mt-6">
+        <div>
           {!collection.stickers || collection.stickers.length === 0 ? (
-            <div className="rounded-2xl border border-dashed border-binder-700/80 bg-binder-900/40 py-16 text-center text-sm text-slate-400">
-              Aún no tienes láminas pegadas en este álbum.
-              {isOwner && ' ¡Haz clic en "+ Pegar Lámina" para empezar a llenar tu álbum!'}
+            <div className="rounded-3xl border border-dashed border-binder-700/80 bg-binder-900/40 py-20 text-center">
+              <span className="text-4xl">📖</span>
+              <h3 className="mt-3 font-display text-xl font-black text-white">Tu álbum está vacío</h3>
+              <p className="mt-1 text-xs text-slate-400">
+                Aún no has pegado láminas en esta colección.
+                {isOwner && ' ¡Haz clic en "+ Pegar Lámina" para empezar a llenarlo!'}
+              </p>
             </div>
           ) : (
             <div className="grid grid-cols-2 gap-5 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-5">
               {collection.stickers.map((item) => (
                 <div
                   key={item.id}
-                  className="group relative flex flex-col justify-between overflow-hidden rounded-2xl border border-binder-700/80 bg-binder-900/90 p-3 shadow-card transition-all duration-300 hover:-translate-y-1.5 hover:border-indigo-500/60 hover:shadow-card-hover"
+                  className="group relative flex flex-col justify-between overflow-hidden rounded-2xl border border-binder-700/80 bg-binder-900/90 p-3 shadow-card transition-all duration-300 hover:-translate-y-2 hover:border-amber-400/60 hover:shadow-card-hover"
                 >
-                  {/* Card en proporción 3:4 con soporte de zoom al hacer clic */}
+                  {/* Card en proporción 3:4 con Zoom */}
                   <div
                     onClick={() => setInspectedSticker(item.sticker)}
                     className="relative aspect-[3/4] w-full cursor-zoom-in overflow-hidden rounded-xl bg-binder-950 shadow-inner"
@@ -380,36 +386,37 @@ export default function CollectionDetail() {
                         <span className="font-mono text-3xl font-black text-slate-700">
                           #{item.sticker.number}
                         </span>
-                        <p className="mt-2 font-display text-xs font-bold text-slate-400">
+                        <p className="mt-2 font-display text-xs font-bold text-slate-300">
                           {item.sticker.name}
                         </p>
                       </div>
                     )}
 
-                    {/* Badge de Duplicada estilo moneda dorada */}
+                    {/* Badge de Repetida estilo Moneda Dorada */}
                     {item.quantity > 1 && (
-                      <div className="absolute right-2 top-2 flex h-7 items-center justify-center rounded-full bg-gradient-to-r from-amber-400 to-amber-500 px-2 shadow-lg shadow-amber-500/30">
+                      <div className="absolute right-2 top-2 flex h-7 items-center justify-center rounded-full bg-gradient-to-r from-amber-400 to-amber-500 px-2.5 shadow-lg shadow-amber-500/40">
                         <span className="font-mono text-xs font-black text-slate-950">
                           ×{item.quantity}
                         </span>
                       </div>
                     )}
 
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 transition-opacity group-hover:opacity-100" />
-                    <span className="absolute bottom-2 left-2 right-2 text-center text-[10px] font-bold text-white opacity-0 transition-opacity group-hover:opacity-100">
-                      🔍 Ampliar
-                    </span>
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent opacity-0 transition-opacity group-hover:opacity-100 flex items-end justify-center pb-2.5">
+                      <span className="rounded-lg bg-black/80 px-2.5 py-1 text-[10px] font-black uppercase tracking-wider text-amber-400 backdrop-blur-md border border-amber-400/30">
+                        🔍 Inspeccionar
+                      </span>
+                    </div>
                   </div>
 
-                  {/* Nombre y datos del cromo */}
-                  <div className="mt-3 flex items-center justify-between">
+                  {/* Pie de Lámina */}
+                  <div className="mt-3 flex items-center justify-between px-1">
                     <span className="font-mono text-xs font-black text-amber-400">
                       #{item.sticker.number < 10 ? `0${item.sticker.number}` : item.sticker.number}
                     </span>
-                    <p className="truncate px-2 text-center text-xs font-extrabold text-slate-200" title={item.sticker.name}>
+                    <p className="truncate px-2 text-center text-xs font-black text-white" title={item.sticker.name}>
                       {item.sticker.name}
                     </p>
-                    <span className="text-[10px] text-slate-500">x{item.quantity}</span>
+                    <span className="font-mono text-[10px] text-slate-500">x{item.quantity}</span>
                   </div>
 
                   {/* Stepper para dueño */}
@@ -417,7 +424,7 @@ export default function CollectionDetail() {
                     <div className="mt-2.5 border-t border-binder-800/80 pt-2">
                       {removingStickerId === item.stickerId ? (
                         <div className="text-center">
-                          <p className="text-[10px] font-bold text-rose-400">¿Quitar del álbum?</p>
+                          <p className="text-[10px] font-bold text-rose-400">¿Despegar lámina?</p>
                           <div className="mt-1 flex justify-center space-x-1.5">
                             <button
                               onClick={() => handleRemoveSticker(item.stickerId)}
@@ -474,15 +481,15 @@ export default function CollectionDetail() {
 
       {/* Tab 2: Láminas Faltantes (Casillas vacías de álbum físico) */}
       {activeTab === 'missing' && (
-        <div className="mt-6">
+        <div>
           {missingStickers.length === 0 ? (
-            <div className="rounded-3xl border border-emerald-500/40 bg-emerald-950/20 py-16 text-center shadow-lg">
-              <span className="text-4xl">🎉</span>
-              <h3 className="mt-3 font-display text-2xl font-black text-emerald-400">
+            <div className="rounded-3xl border border-emerald-500/40 bg-emerald-950/20 py-20 text-center shadow-lg">
+              <span className="text-5xl">🏆</span>
+              <h3 className="mt-4 font-display text-3xl font-black text-emerald-400">
                 ¡ÁLBUM 100% COMPLETADO!
               </h3>
-              <p className="mt-1 text-xs text-emerald-300">
-                No tienes ninguna lámina pendiente por pegar.
+              <p className="mt-1 text-sm text-emerald-300">
+                ¡Increíble logro! Has pegado todas las láminas del álbum oficial.
               </p>
             </div>
           ) : (
@@ -490,28 +497,28 @@ export default function CollectionDetail() {
               {missingStickers.map((st) => (
                 <div
                   key={st.id}
-                  className="flex aspect-[3/4] flex-col items-center justify-between rounded-2xl border-2 border-dashed border-binder-700/80 bg-binder-950/40 p-4 text-center transition hover:border-rose-500/50"
+                  className="flex aspect-[3/4] flex-col items-center justify-between rounded-2xl border-2 border-dashed border-binder-700/80 bg-binder-950/50 p-4 text-center slot-pattern transition hover:border-rose-500/50"
                 >
-                  <span className="font-mono text-xs font-black text-slate-500">
+                  <span className="font-mono text-[11px] font-black tracking-widest text-slate-500">
                     SLOT #{st.number < 10 ? `0${st.number}` : st.number}
                   </span>
 
                   <div className="flex flex-col items-center">
-                    <span className="font-mono text-5xl font-black text-slate-800">
+                    <span className="font-mono text-6xl font-black text-slate-800">
                       #{st.number}
                     </span>
-                    <p className="mt-2 font-display text-xs font-bold text-slate-400 line-clamp-2">
+                    <p className="mt-2 font-display text-xs font-black text-slate-400 line-clamp-2">
                       {st.name}
                     </p>
                     {st.type && (
-                      <span className="mt-1 text-[10px] font-semibold text-slate-500">
+                      <span className="mt-1 text-[10px] font-bold text-slate-500">
                         {st.type}
                       </span>
                     )}
                   </div>
 
-                  <span className="rounded-md bg-rose-950/40 px-2 py-0.5 text-[9px] font-black uppercase tracking-wider text-rose-400 border border-rose-900/40">
-                    Faltante
+                  <span className="rounded-md bg-rose-950/40 px-2.5 py-0.5 text-[9px] font-black uppercase tracking-wider text-rose-400 border border-rose-900/50">
+                    Por Pegar
                   </span>
                 </div>
               ))}
@@ -520,32 +527,38 @@ export default function CollectionDetail() {
         </div>
       )}
 
-      {/* Tab 3: Láminas Repetidas (Pila de intercambio) */}
+      {/* Tab 3: Láminas Repetidas (Pila de intercambio con insignia dorada) */}
       {activeTab === 'duplicates' && (
-        <div className="mt-6">
+        <div>
           {duplicateStickers.length === 0 ? (
-            <div className="rounded-2xl border border-dashed border-binder-700/80 bg-binder-900/40 py-16 text-center text-sm text-slate-400">
-              No tienes láminas repetidas en este momento.
+            <div className="rounded-3xl border border-dashed border-binder-700/80 bg-binder-900/40 py-20 text-center text-sm text-slate-400">
+              <span className="text-3xl">🔄</span>
+              <p className="mt-2 font-display text-base font-bold text-white">
+                No tienes láminas repetidas para intercambio
+              </p>
+              <p className="mt-1 text-xs text-slate-500">
+                Cuando pegues más de 1 copia de un cromo, aparecerán aquí para negociar con otros coleccionistas.
+              </p>
             </div>
           ) : (
             <div className="grid grid-cols-2 gap-5 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-5">
               {duplicateStickers.map((dup) => (
                 <div
                   key={dup.stickerId}
-                  className="group relative flex flex-col justify-between overflow-hidden rounded-2xl border border-amber-500/40 bg-gradient-to-b from-binder-900 to-amber-950/20 p-3 shadow-card"
+                  className="group relative flex flex-col justify-between overflow-hidden rounded-2xl border border-amber-400/50 bg-gradient-to-b from-binder-900 to-amber-950/20 p-3 shadow-card"
                 >
                   <div className="relative aspect-[3/4] w-full overflow-hidden rounded-xl bg-binder-950">
                     {dup.imageUrl ? (
                       <img src={dup.imageUrl} alt={dup.name} className="h-full w-full object-contain" />
                     ) : (
                       <div className="flex h-full items-center justify-center">
-                        <span className="font-mono text-4xl font-black text-amber-500/40">
+                        <span className="font-mono text-5xl font-black text-amber-500/30">
                           #{dup.number}
                         </span>
                       </div>
                     )}
 
-                    <div className="absolute top-2 right-2 rounded-lg bg-gradient-to-r from-amber-400 to-amber-500 px-2 py-0.5 shadow-md">
+                    <div className="absolute top-2 right-2 rounded-lg bg-gradient-to-r from-amber-400 via-amber-500 to-amber-600 px-2.5 py-1 shadow-md shadow-amber-500/30">
                       <span className="font-mono text-xs font-black text-slate-950">
                         +{dup.quantity - 1} para cambio
                       </span>
@@ -556,8 +569,8 @@ export default function CollectionDetail() {
                     <p className="truncate text-xs font-black text-white" title={dup.name}>
                       #{dup.number} — {dup.name}
                     </p>
-                    <p className="mt-0.5 text-[10px] font-semibold text-slate-400">
-                      Total {dup.quantity} copias físicas
+                    <p className="mt-0.5 text-[10px] font-bold text-slate-400">
+                      Total: {dup.quantity} copias físicas
                     </p>
                   </div>
                 </div>
@@ -575,20 +588,20 @@ export default function CollectionDetail() {
         >
           <div
             onClick={(e) => e.stopPropagation()}
-            className="relative flex w-full max-w-md flex-col items-center rounded-3xl border border-amber-400/40 bg-binder-900 p-6 shadow-foil"
+            className="relative flex w-full max-w-md flex-col items-center rounded-3xl border-2 border-amber-400/50 bg-binder-900 p-7 shadow-foil"
           >
             <button
               onClick={() => setInspectedSticker(null)}
-              className="absolute right-4 top-4 flex h-8 w-8 items-center justify-center rounded-full bg-binder-800 text-sm font-bold text-slate-300 hover:bg-binder-700 hover:text-white"
+              className="absolute right-4 top-4 flex h-8 w-8 items-center justify-center rounded-full bg-binder-800 text-slate-400 hover:text-white"
             >
               ✕
             </button>
 
-            <span className="text-[10px] font-black uppercase tracking-widest text-amber-400">
-              LÁMINA COLECCIONABLE
+            <span className="font-mono text-[10px] font-black uppercase tracking-[0.25em] text-amber-400">
+              LÁMINA EN TU COLECCIÓN
             </span>
 
-            <div className="mt-4 aspect-[3/4] w-full max-w-[320px] overflow-hidden rounded-2xl border-2 border-amber-400/60 bg-binder-950 shadow-2xl">
+            <div className="mt-5 aspect-[3/4] w-full max-w-[320px] overflow-hidden rounded-2xl border-2 border-amber-400/60 bg-binder-950 shadow-2xl">
               {inspectedSticker.imageUrl ? (
                 <img
                   src={inspectedSticker.imageUrl}
@@ -596,23 +609,23 @@ export default function CollectionDetail() {
                   className="h-full w-full object-contain"
                 />
               ) : (
-                <div className="flex h-full flex-col items-center justify-center">
-                  <span className="font-mono text-6xl font-black text-slate-700">
+                <div className="flex h-full flex-col items-center justify-center p-4 text-center">
+                  <span className="font-mono text-7xl font-black text-slate-700">
                     #{inspectedSticker.number}
                   </span>
-                  <p className="mt-3 font-display text-lg font-bold text-white">
+                  <p className="mt-4 font-display text-2xl font-black text-white">
                     {inspectedSticker.name}
                   </p>
                 </div>
               )}
             </div>
 
-            <div className="mt-4 text-center">
+            <div className="mt-5 text-center">
               <h3 className="font-display text-2xl font-black text-white">
                 #{inspectedSticker.number} — {inspectedSticker.name}
               </h3>
               {inspectedSticker.type && (
-                <span className="mt-2 inline-block rounded-full bg-amber-400/20 px-3 py-1 text-xs font-bold text-amber-300 border border-amber-400/40">
+                <span className="mt-2.5 inline-block rounded-full bg-amber-400/15 px-3.5 py-1 text-xs font-black uppercase tracking-wider text-amber-300 border border-amber-400/40">
                   {inspectedSticker.type}
                 </span>
               )}
@@ -623,10 +636,13 @@ export default function CollectionDetail() {
 
       {/* Modal Añadir Lámina */}
       {showAddModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 p-4 backdrop-blur-sm">
-          <div className="w-full max-w-md rounded-2xl border border-binder-700 bg-binder-900 p-6 shadow-2xl">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4 backdrop-blur-md">
+          <div className="w-full max-w-md rounded-3xl border border-binder-700 bg-binder-900 p-6 shadow-2xl sm:p-8">
             <div className="flex items-center justify-between border-b border-binder-800 pb-3">
-              <h3 className="font-display text-xl font-black text-white">Pegar Lámina en tu Álbum</h3>
+              <div>
+                <h3 className="font-display text-xl font-black text-white">Pegar Lámina en tu Álbum</h3>
+                <p className="text-xs text-slate-400">Selecciona el cromo del catálogo oficial</p>
+              </div>
               <button
                 onClick={() => setShowAddModal(false)}
                 className="text-slate-400 hover:text-white"
@@ -641,7 +657,7 @@ export default function CollectionDetail() {
               </div>
             )}
 
-            <form noValidate onSubmit={handleAddSticker} className="mt-4 space-y-4">
+            <form noValidate onSubmit={handleAddSticker} className="mt-5 space-y-4">
               <div>
                 <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-300">
                   Seleccionar Lámina del Catálogo
@@ -655,7 +671,7 @@ export default function CollectionDetail() {
                   className={`mt-1.5 w-full rounded-xl border bg-binder-950 px-3.5 py-2.5 text-sm text-white focus:outline-none ${
                     stickerErrors.stickerId
                       ? 'border-red-500 focus:border-red-500'
-                      : 'border-binder-700 focus:border-indigo-400'
+                      : 'border-binder-700 focus:border-amber-400'
                   }`}
                 >
                   {albumStickers.map((st) => (
@@ -684,7 +700,7 @@ export default function CollectionDetail() {
                   className={`mt-1.5 w-full rounded-xl border bg-binder-950 px-3.5 py-2.5 text-sm font-mono text-white focus:outline-none ${
                     stickerErrors.quantity
                       ? 'border-red-500 focus:border-red-500'
-                      : 'border-binder-700 focus:border-indigo-400'
+                      : 'border-binder-700 focus:border-amber-400'
                   }`}
                 />
                 {Number(quantity) > 1 && (
@@ -705,7 +721,7 @@ export default function CollectionDetail() {
                 <button
                   type="submit"
                   disabled={submitting}
-                  className="rounded-xl bg-gradient-to-r from-indigo-500 to-indigo-600 px-5 py-2 text-xs font-black uppercase tracking-wider text-white hover:brightness-110 disabled:opacity-50"
+                  className="rounded-xl bg-gradient-to-r from-amber-400 via-amber-500 to-amber-600 px-6 py-2 text-xs font-black uppercase tracking-wider text-slate-950 hover:brightness-110 disabled:opacity-50"
                 >
                   {submitting ? 'Pegando...' : 'Pegar en el Álbum'}
                 </button>

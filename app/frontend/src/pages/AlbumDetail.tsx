@@ -10,7 +10,7 @@ export default function AlbumDetail() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
-  // Zoom / Card Inspector Modal
+  // Zoom / Acrylic Display Inspector Modal
   const [inspectedSticker, setInspectedSticker] = useState<Sticker | null>(null)
 
   // Add Sticker Modal
@@ -183,8 +183,8 @@ export default function AlbumDetail() {
   if (loading) {
     return (
       <div className="py-24 text-center">
-        <div className="inline-block h-8 w-8 animate-spin rounded-full border-4 border-amber-400 border-t-transparent" />
-        <p className="mt-3 text-xs font-bold tracking-wider text-slate-400">CARGANDO ÁLBUM...</p>
+        <div className="inline-block h-9 w-9 animate-spin rounded-full border-4 border-amber-400 border-t-transparent" />
+        <p className="mt-3 text-xs font-bold tracking-widest text-slate-400">CARGANDO ÁLBUM...</p>
       </div>
     )
   }
@@ -192,7 +192,7 @@ export default function AlbumDetail() {
   if (!album) {
     return (
       <div className="py-20 text-center">
-        <p className="text-lg font-bold text-red-400">Álbum no encontrado</p>
+        <p className="font-display text-xl font-black text-red-400">Álbum no encontrado</p>
         <Link to="/albums" className="mt-4 inline-block text-xs font-bold text-amber-400 hover:underline">
           ← Volver al catálogo de álbumes
         </Link>
@@ -200,109 +200,114 @@ export default function AlbumDetail() {
     )
   }
 
-  // Capacidad coherente corregida: nunca menor que las láminas registradas
   const totalCapacity = Math.max(album.totalStickers, album.stickers?.length || 0)
   const stickersCount = album.stickers?.length || 0
   const isCatalogComplete = stickersCount >= totalCapacity
 
   return (
-    <div>
+    <div className="space-y-8">
       {/* Breadcrumb */}
       <Link
         to="/albums"
-        className="inline-flex items-center space-x-1.5 text-xs font-bold uppercase tracking-wider text-slate-400 transition hover:text-amber-400"
+        className="inline-flex items-center space-x-2 text-xs font-bold uppercase tracking-wider text-slate-400 transition hover:text-amber-400"
       >
         <span>←</span>
         <span>Volver a Catálogo de Álbumes</span>
       </Link>
 
-      {/* Deluxe Album Presentation Banner */}
-      <div className="mt-4 flex flex-col gap-6 rounded-3xl border border-binder-700/80 bg-gradient-to-br from-binder-900 via-binder-900 to-binder-950 p-6 shadow-2xl shadow-black/60 md:flex-row md:items-center">
-        {/* Cover 3D Box */}
-        <div className="relative aspect-[16/11] w-full flex-shrink-0 overflow-hidden rounded-2xl border border-binder-700 bg-binder-950 shadow-xl md:w-64">
-          {album.imageUrl ? (
-            <img src={album.imageUrl} alt={album.name} className="h-full w-full object-cover" />
-          ) : (
-            <div className="flex h-full items-center justify-center bg-gradient-to-br from-binder-800 to-binder-950 text-6xl font-black text-slate-700">
-              {album.name.charAt(0)}
-            </div>
-          )}
-          <span className="absolute bottom-2.5 left-2.5 rounded-lg bg-black/75 px-2.5 py-0.5 text-[10px] font-black uppercase tracking-wider text-amber-400 backdrop-blur-md border border-amber-400/30">
-            {album.stickerType || 'Fútbol'}
-          </span>
-        </div>
+      {/* Deluxe Album Inner Cover Banner */}
+      <div className="relative overflow-hidden rounded-3xl border border-binder-700/90 bg-gradient-to-br from-binder-900 via-binder-900 to-indigo-950/40 p-6 shadow-2xl md:p-8">
+        <div className="absolute right-0 top-0 h-64 w-64 rounded-full bg-amber-500/10 blur-3xl pointer-events-none" />
 
-        {/* Album Meta */}
-        <div className="flex flex-1 flex-col justify-between">
-          <div>
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <span className="inline-flex items-center space-x-1.5 rounded-full bg-amber-400/10 px-3 py-1 text-xs font-bold text-amber-400 border border-amber-400/30">
-                <span>🏆</span>
-                <span>Edición Oficial</span>
-              </span>
+        <div className="relative z-10 flex flex-col gap-6 md:flex-row md:items-center">
+          {/* Hardcover Cover Card with Binder Spine */}
+          <div className="relative aspect-[16/11] w-full flex-shrink-0 overflow-hidden rounded-2xl border border-binder-700 bg-binder-950 shadow-2xl binder-spine md:w-72">
+            {album.imageUrl ? (
+              <img src={album.imageUrl} alt={album.name} className="h-full w-full object-cover" />
+            ) : (
+              <div className="flex h-full flex-col items-center justify-center bg-gradient-to-br from-binder-800 to-binder-950 p-6 text-center">
+                <span className="text-6xl">🏆</span>
+                <p className="mt-2 font-display text-lg font-black text-white">{album.name}</p>
+              </div>
+            )}
+            <div className="absolute inset-0 bg-gradient-to-t from-binder-950 via-transparent to-transparent opacity-80" />
+            <span className="absolute bottom-3 left-3 rounded-lg bg-black/75 px-2.5 py-1 text-[10px] font-black uppercase tracking-wider text-amber-400 backdrop-blur-md border border-amber-400/30">
+              {album.stickerType || 'Fútbol'}
+            </span>
+          </div>
 
-              {isOwner && !confirmDeleteAlbum && (
-                <button
-                  onClick={() => setConfirmDeleteAlbum(true)}
-                  className="rounded-lg border border-red-900/50 bg-red-950/30 px-3 py-1 text-xs font-bold text-red-400 transition hover:bg-red-900/50 hover:text-red-200"
-                >
-                  Eliminar Álbum
-                </button>
+          {/* Album Details */}
+          <div className="flex flex-1 flex-col justify-between">
+            <div>
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div className="flex items-center space-x-2">
+                  <span className="inline-flex items-center space-x-1.5 rounded-full bg-amber-400/10 px-3 py-1 text-xs font-black uppercase tracking-wider text-amber-400 border border-amber-400/30">
+                    <span>★</span>
+                    <span>Colección Oficial</span>
+                  </span>
+                  {isCatalogComplete && (
+                    <span className="rounded-full border border-emerald-500/40 bg-emerald-950/40 px-3 py-1 text-xs font-black uppercase tracking-wider text-emerald-400">
+                      ✓ Catálogo 100%
+                    </span>
+                  )}
+                </div>
+
+                {isOwner && !confirmDeleteAlbum && (
+                  <button
+                    onClick={() => setConfirmDeleteAlbum(true)}
+                    className="rounded-xl border border-red-900/60 bg-red-950/40 px-3.5 py-1.5 text-xs font-bold text-red-400 transition hover:bg-red-900/60 hover:text-white"
+                  >
+                    Eliminar Álbum
+                  </button>
+                )}
+              </div>
+
+              <h1 className="mt-3 font-display text-3xl font-black tracking-tight text-white sm:text-5xl">
+                {album.name}
+              </h1>
+              {album.description && (
+                <p className="mt-2 text-sm font-medium text-slate-300 leading-relaxed max-w-2xl">
+                  {album.description}
+                </p>
               )}
             </div>
 
-            <h1 className="mt-3 font-display text-3xl font-black tracking-tight text-white sm:text-4xl">
-              {album.name}
-            </h1>
-            {album.description && (
-              <p className="mt-2 text-sm font-medium text-slate-300">{album.description}</p>
-            )}
-          </div>
-
-          {/* Metrics & Badges (Corregido el error de texto '10 de 4') */}
-          <div className="mt-6 flex flex-wrap items-center gap-3 border-t border-binder-800/80 pt-4 text-xs">
-            <div className="rounded-xl border border-binder-700 bg-binder-950/60 px-3.5 py-2">
-              <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
-                Capacidad del Álbum
-              </span>
-              <p className="font-mono text-base font-black text-white">{totalCapacity} láminas</p>
-            </div>
-
-            <div className="rounded-xl border border-binder-700 bg-binder-950/60 px-3.5 py-2">
-              <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
-                Láminas en Catálogo
-              </span>
-              <p className="font-mono text-base font-black text-amber-400">
-                {stickersCount} de {totalCapacity}
-              </p>
-            </div>
-
-            {isCatalogComplete && (
-              <div className="rounded-xl border border-emerald-500/30 bg-emerald-950/30 px-3.5 py-2">
-                <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-400">
-                  Estado
+            {/* Metrics Pills */}
+            <div className="mt-6 flex flex-wrap items-center gap-3 border-t border-binder-800/80 pt-5">
+              <div className="rounded-2xl border border-binder-700/80 bg-binder-950/70 px-4 py-2.5">
+                <span className="text-[10px] font-black uppercase tracking-wider text-slate-400">
+                  Capacidad Total
                 </span>
-                <p className="text-xs font-black text-emerald-300">✓ Catálogo Completo</p>
+                <p className="font-mono text-lg font-black text-white">{totalCapacity} láminas</p>
               </div>
-            )}
 
-            {album.releaseDate && (
-              <div className="rounded-xl border border-binder-700 bg-binder-950/60 px-3.5 py-2">
-                <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
-                  Lanzamiento
+              <div className="rounded-2xl border border-binder-700/80 bg-binder-950/70 px-4 py-2.5">
+                <span className="text-[10px] font-black uppercase tracking-wider text-slate-400">
+                  Láminas en Catálogo
                 </span>
-                <p className="text-xs font-semibold text-slate-200">
-                  {new Date(album.releaseDate).toLocaleDateString()}
+                <p className="font-mono text-lg font-black text-amber-400">
+                  {stickersCount} de {totalCapacity}
                 </p>
               </div>
-            )}
+
+              {album.releaseDate && (
+                <div className="rounded-2xl border border-binder-700/80 bg-binder-950/70 px-4 py-2.5">
+                  <span className="text-[10px] font-black uppercase tracking-wider text-slate-400">
+                    Lanzamiento
+                  </span>
+                  <p className="text-xs font-bold text-slate-200">
+                    {new Date(album.releaseDate).toLocaleDateString()}
+                  </p>
+                </div>
+              )}
+            </div>
           </div>
         </div>
       </div>
 
-      {/* Alerta de confirmación de eliminación de álbum */}
+      {/* Confirmation of Delete */}
       {confirmDeleteAlbum && (
-        <div className="mt-4 rounded-2xl border border-red-500/50 bg-red-950/60 p-5 shadow-xl">
+        <div className="rounded-2xl border border-red-500/50 bg-red-950/70 p-5 shadow-2xl">
           <p className="text-sm font-bold text-red-200">
             ⚠️ ¿Confirmas que deseas eliminar el álbum "{album.name}" y todas sus láminas asociadas?
           </p>
@@ -311,7 +316,7 @@ export default function AlbumDetail() {
               onClick={handleDeleteAlbum}
               className="rounded-xl bg-red-600 px-4 py-2 text-xs font-black uppercase tracking-wider text-white hover:bg-red-500"
             >
-              Sí, eliminar álbum
+              Sí, eliminar definitivamente
             </button>
             <button
               onClick={() => setConfirmDeleteAlbum(false)}
@@ -324,21 +329,21 @@ export default function AlbumDetail() {
       )}
 
       {error && (
-        <div className="mt-4 rounded-xl border border-red-500/30 bg-red-950/40 p-4 text-xs font-semibold text-red-300">
+        <div className="rounded-2xl border border-red-500/30 bg-red-950/40 p-4 text-xs font-semibold text-red-300">
           {error}
         </div>
       )}
 
-      {/* Barra de herramientas para el dueño */}
+      {/* Action Toolbar for Owner */}
       {isOwner && (
-        <div className="mt-6 flex flex-wrap items-center gap-3">
+        <div className="flex flex-wrap items-center gap-3">
           <button
             onClick={() => {
               setModalError(null)
               setStickerErrors({})
               setShowAddModal(true)
             }}
-            className="inline-flex items-center space-x-2 rounded-xl bg-gradient-to-r from-amber-400 to-amber-500 px-4 py-2.5 text-xs font-black uppercase tracking-wider text-slate-950 shadow-md shadow-amber-500/20 hover:brightness-110"
+            className="inline-flex items-center space-x-2 rounded-xl bg-gradient-to-r from-amber-400 via-amber-500 to-amber-600 px-5 py-2.5 text-xs font-black uppercase tracking-wider text-slate-950 shadow-lg shadow-amber-500/20 hover:brightness-110"
           >
             <span>+</span>
             <span>Añadir Lámina</span>
@@ -348,7 +353,7 @@ export default function AlbumDetail() {
               setBulkError(null)
               setShowBulkModal(true)
             }}
-            className="inline-flex items-center space-x-1.5 rounded-xl border border-binder-700 bg-binder-800 px-4 py-2.5 text-xs font-bold text-slate-200 hover:bg-binder-700"
+            className="inline-flex items-center space-x-1.5 rounded-xl border border-binder-700 bg-binder-800/80 px-4 py-2.5 text-xs font-bold text-slate-200 hover:bg-binder-700 hover:text-white"
           >
             <span>⚡</span>
             <span>Carga Masiva</span>
@@ -356,110 +361,127 @@ export default function AlbumDetail() {
         </div>
       )}
 
-      {/* Título de sección de láminas */}
-      <div className="mt-10 flex items-center justify-between border-b border-binder-800/80 pb-3">
+      {/* Section Header */}
+      <div className="flex items-center justify-between border-b border-binder-800/80 pb-3 pt-4">
         <div>
           <h2 className="font-display text-2xl font-black text-white">
             Colección de Láminas ({stickersCount})
           </h2>
-          <p className="text-xs text-slate-400">
-            Haz clic en cualquier lámina para ampliarla y ver sus detalles coleccionables
+          <p className="text-xs font-medium text-slate-400">
+            Haz clic en cualquier cromo para examinarlo en el visor de alta resolución
           </p>
         </div>
       </div>
 
-      {/* Grid de Láminas - GRANDES, PROPORCIONADAS Y 100% LEGIBLES */}
+      {/* Sticker Grid: Grandes, Proporcionadas y con Acabado Coleccionista */}
       {!album.stickers || album.stickers.length === 0 ? (
-        <div className="mt-8 rounded-2xl border border-dashed border-binder-700/80 bg-binder-900/40 py-16 text-center">
-          <p className="text-sm font-medium text-slate-400">
-            Este álbum aún no tiene láminas cargadas en su catálogo.
+        <div className="rounded-3xl border border-dashed border-binder-700/80 bg-binder-900/40 py-20 text-center">
+          <span className="text-4xl">🃏</span>
+          <h3 className="mt-3 font-display text-xl font-black text-white">Álbum vacío</h3>
+          <p className="mt-1 text-xs text-slate-400">
+            Aún no se han publicado láminas para este álbum.
           </p>
         </div>
       ) : (
-        <div className="mt-6 grid grid-cols-2 gap-5 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-5">
-          {album.stickers.map((st) => (
-            <div
-              key={st.id}
-              className="group relative flex flex-col justify-between overflow-hidden rounded-2xl border border-binder-700/80 bg-binder-900/90 p-3 shadow-card transition-all duration-300 hover:-translate-y-2 hover:border-amber-400/60 hover:shadow-card-hover"
-            >
-              {/* Tarjeta de la Lámina en proporción 3:4 */}
+        <div className="grid grid-cols-2 gap-5 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-5">
+          {album.stickers.map((st) => {
+            const isSpecial =
+              st.type?.toLowerCase().includes('brillante') ||
+              st.type?.toLowerCase().includes('especial') ||
+              st.type?.toLowerCase().includes('capitán') ||
+              st.type?.toLowerCase().includes('oro')
+
+            return (
               <div
-                onClick={() => setInspectedSticker(st)}
-                className="relative aspect-[3/4] w-full cursor-zoom-in overflow-hidden rounded-xl bg-binder-950 shadow-inner"
+                key={st.id}
+                className={`group relative flex flex-col justify-between overflow-hidden rounded-2xl border bg-binder-900/90 p-3 shadow-card transition-all duration-300 hover:-translate-y-2 hover:shadow-card-hover ${
+                  isSpecial
+                    ? 'border-amber-400/50 hover:border-amber-300 holo-foil'
+                    : 'border-binder-700/80 hover:border-indigo-400/60'
+                }`}
               >
-                {st.imageUrl ? (
-                  <img
-                    src={st.imageUrl}
-                    alt={st.name}
-                    className="h-full w-full object-contain transition duration-500 group-hover:scale-105"
-                  />
-                ) : (
-                  <div className="flex h-full flex-col items-center justify-center p-3 text-center">
-                    <span className="font-mono text-3xl font-black text-slate-700">#{st.number}</span>
-                    <p className="mt-2 font-display text-xs font-bold text-slate-400">{st.name}</p>
-                    {st.type && (
-                      <span className="mt-1 text-[10px] font-semibold text-amber-400/80">{st.type}</span>
+                {/* Visual en Aspect Ratio 3:4 con Zoom */}
+                <div
+                  onClick={() => setInspectedSticker(st)}
+                  className="relative aspect-[3/4] w-full cursor-zoom-in overflow-hidden rounded-xl bg-binder-950 shadow-inner"
+                >
+                  {st.imageUrl ? (
+                    <img
+                      src={st.imageUrl}
+                      alt={st.name}
+                      className="h-full w-full object-contain transition duration-500 group-hover:scale-105"
+                    />
+                  ) : (
+                    <div className="flex h-full flex-col items-center justify-center p-3 text-center">
+                      <span className="font-mono text-3xl font-black text-slate-700">#{st.number}</span>
+                      <p className="mt-2 font-display text-xs font-bold text-slate-300">{st.name}</p>
+                      {st.type && (
+                        <span className="mt-1 text-[10px] font-bold text-amber-400">{st.type}</span>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Shimmer overlay al hover */}
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent opacity-0 transition-opacity group-hover:opacity-100 flex items-end justify-center pb-2.5">
+                    <span className="rounded-lg bg-black/80 px-2.5 py-1 text-[10px] font-black uppercase tracking-wider text-amber-400 backdrop-blur-md border border-amber-400/30">
+                      🔍 Inspeccionar
+                    </span>
+                  </div>
+                </div>
+
+                {/* Pie del Cromo */}
+                <div className="mt-3 flex items-center justify-between px-1">
+                  <span className="font-mono text-xs font-black text-amber-400">
+                    #{st.number < 10 ? `0${st.number}` : st.number}
+                  </span>
+                  <p className="truncate px-2 text-center text-xs font-black text-white" title={st.name}>
+                    {st.name}
+                  </p>
+                  {st.type ? (
+                    <span className="rounded-md bg-binder-800 px-1.5 py-0.5 text-[9px] font-bold text-slate-300">
+                      {st.type}
+                    </span>
+                  ) : (
+                    <span />
+                  )}
+                </div>
+
+                {/* Delete button for Owner */}
+                {isOwner && (
+                  <div className="mt-2 border-t border-binder-800/80 pt-2 text-center">
+                    {deletingStickerId === st.id ? (
+                      <div className="flex items-center justify-center space-x-1.5">
+                        <span className="text-[10px] font-bold text-red-400">¿Borrar?</span>
+                        <button
+                          onClick={() => handleDeleteSticker(st.id)}
+                          className="rounded bg-red-600 px-2 py-0.5 text-[10px] font-bold text-white hover:bg-red-500"
+                        >
+                          Sí
+                        </button>
+                        <button
+                          onClick={() => setDeletingStickerId(null)}
+                          className="rounded bg-binder-800 px-2 py-0.5 text-[10px] font-semibold text-slate-400 hover:bg-binder-700"
+                        >
+                          No
+                        </button>
+                      </div>
+                    ) : (
+                      <button
+                        onClick={() => setDeletingStickerId(st.id)}
+                        className="text-[10px] font-bold text-slate-500 transition hover:text-red-400 hover:underline"
+                      >
+                        Eliminar lámina
+                      </button>
                     )}
                   </div>
                 )}
-
-                {/* Overlay sutil al pasar cursor */}
-                <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 transition-opacity group-hover:opacity-100" />
-                <span className="absolute bottom-2 left-2 right-2 text-center text-[10px] font-bold text-white opacity-0 transition-opacity group-hover:opacity-100">
-                  🔍 Ver detalle
-                </span>
               </div>
-
-              {/* Pie de tarjeta: Nombre y número claramente visibles */}
-              <div className="mt-3 flex items-center justify-between">
-                <span className="font-mono text-xs font-black text-amber-400">
-                  #{st.number < 10 ? `0${st.number}` : st.number}
-                </span>
-                <p className="truncate px-2 text-center text-xs font-extrabold text-slate-200" title={st.name}>
-                  {st.name}
-                </p>
-                {st.type ? (
-                  <span className="rounded bg-binder-800 px-1.5 py-0.5 text-[9px] font-bold text-slate-300">
-                    {st.type}
-                  </span>
-                ) : <span />}
-              </div>
-
-              {/* Botón de borrado para el dueño */}
-              {isOwner && (
-                <div className="mt-2 border-t border-binder-800/80 pt-2 text-center">
-                  {deletingStickerId === st.id ? (
-                    <div className="flex items-center justify-center space-x-1.5">
-                      <span className="text-[10px] font-bold text-red-400">¿Borrar?</span>
-                      <button
-                        onClick={() => handleDeleteSticker(st.id)}
-                        className="rounded bg-red-600 px-2 py-0.5 text-[10px] font-bold text-white hover:bg-red-500"
-                      >
-                        Sí
-                      </button>
-                      <button
-                        onClick={() => setDeletingStickerId(null)}
-                        className="rounded bg-binder-800 px-2 py-0.5 text-[10px] font-semibold text-slate-400 hover:bg-binder-700"
-                      >
-                        No
-                      </button>
-                    </div>
-                  ) : (
-                    <button
-                      onClick={() => setDeletingStickerId(st.id)}
-                      className="text-[10px] font-bold text-slate-500 transition hover:text-red-400 hover:underline"
-                    >
-                      Eliminar lámina
-                    </button>
-                  )}
-                </div>
-              )}
-            </div>
-          ))}
+            )
+          })}
         </div>
       )}
 
-      {/* Modal Card Inspector Lightbox (AMPLIACIÓN EN ALTA RESOLUCIÓN) */}
+      {/* Collector Display Slab Modal (INSPECTOR DE ALTA RESOLUCIÓN) */}
       {inspectedSticker && (
         <div
           onClick={() => setInspectedSticker(null)}
@@ -467,21 +489,21 @@ export default function AlbumDetail() {
         >
           <div
             onClick={(e) => e.stopPropagation()}
-            className="relative flex w-full max-w-md flex-col items-center rounded-3xl border border-amber-400/40 bg-binder-900 p-6 shadow-foil"
+            className="relative flex w-full max-w-md flex-col items-center rounded-3xl border-2 border-amber-400/50 bg-binder-900 p-7 shadow-foil"
           >
             <button
               onClick={() => setInspectedSticker(null)}
-              className="absolute right-4 top-4 flex h-8 w-8 items-center justify-center rounded-full bg-binder-800 text-sm font-bold text-slate-300 hover:bg-binder-700 hover:text-white"
+              className="absolute right-4 top-4 flex h-8 w-8 items-center justify-center rounded-full bg-binder-800 text-slate-400 hover:text-white"
             >
               ✕
             </button>
 
-            <span className="text-[10px] font-black uppercase tracking-widest text-amber-400">
-              INSPECTOR DE LÁMINA COLECCIONABLE
+            <span className="font-mono text-[10px] font-black uppercase tracking-[0.25em] text-amber-400">
+              COLECCIONABLE OFICIAL • STICKDEX
             </span>
 
-            {/* Imagen grande en ratio 3:4 */}
-            <div className="mt-4 aspect-[3/4] w-full max-w-[320px] overflow-hidden rounded-2xl border-2 border-amber-400/60 bg-binder-950 shadow-2xl">
+            {/* Carta física ampliada */}
+            <div className="mt-5 aspect-[3/4] w-full max-w-[320px] overflow-hidden rounded-2xl border-2 border-amber-400/60 bg-binder-950 shadow-2xl">
               {inspectedSticker.imageUrl ? (
                 <img
                   src={inspectedSticker.imageUrl}
@@ -489,23 +511,23 @@ export default function AlbumDetail() {
                   className="h-full w-full object-contain"
                 />
               ) : (
-                <div className="flex h-full flex-col items-center justify-center">
-                  <span className="font-mono text-6xl font-black text-slate-700">
+                <div className="flex h-full flex-col items-center justify-center p-4 text-center">
+                  <span className="font-mono text-7xl font-black text-slate-700">
                     #{inspectedSticker.number}
                   </span>
-                  <p className="mt-3 font-display text-lg font-bold text-white">
+                  <p className="mt-4 font-display text-2xl font-black text-white">
                     {inspectedSticker.name}
                   </p>
                 </div>
               )}
             </div>
 
-            <div className="mt-4 text-center">
+            <div className="mt-5 text-center">
               <h3 className="font-display text-2xl font-black text-white">
                 #{inspectedSticker.number} — {inspectedSticker.name}
               </h3>
               {inspectedSticker.type && (
-                <span className="mt-2 inline-block rounded-full bg-amber-400/20 px-3 py-1 text-xs font-bold text-amber-300 border border-amber-400/40">
+                <span className="mt-2.5 inline-block rounded-full bg-amber-400/15 px-3.5 py-1 text-xs font-black uppercase tracking-wider text-amber-300 border border-amber-400/40">
                   {inspectedSticker.type}
                 </span>
               )}
@@ -516,8 +538,8 @@ export default function AlbumDetail() {
 
       {/* Modal Añadir Lámina */}
       {showAddModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 p-4 backdrop-blur-sm">
-          <div className="w-full max-w-md rounded-2xl border border-binder-700 bg-binder-900 p-6 shadow-2xl">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4 backdrop-blur-md">
+          <div className="w-full max-w-md rounded-3xl border border-binder-700 bg-binder-900 p-6 shadow-2xl">
             <div className="flex items-center justify-between border-b border-binder-800 pb-3">
               <h3 className="font-display text-xl font-black text-white">Añadir Lámina al Álbum</h3>
               <button
@@ -567,7 +589,7 @@ export default function AlbumDetail() {
                     type="text"
                     value={stickerType}
                     onChange={(e) => setStickerType(e.target.value)}
-                    className="mt-1.5 w-full rounded-xl border border-binder-700 bg-binder-950 px-3.5 py-2.5 text-sm text-white placeholder-slate-500 focus:border-amber-400 focus:outline-none"
+                    className="mt-1.5 w-full rounded-xl border border-binder-700 bg-binder-950 px-3.5 py-2 text-sm text-white placeholder-slate-500 focus:border-amber-400 focus:outline-none"
                     placeholder="Brillante, Capitán..."
                   />
                 </div>
@@ -604,7 +626,7 @@ export default function AlbumDetail() {
                   type="file"
                   accept="image/jpeg,image/png,image/webp"
                   onChange={(e) => setStickerFile(e.target.files?.[0] || null)}
-                  className="mt-1.5 block w-full text-xs text-slate-400 file:mr-3 file:rounded-lg file:border-0 file:bg-binder-800 file:px-3 file:py-1.5 file:text-xs file:font-bold file:text-amber-400 hover:file:bg-binder-700"
+                  className="mt-1.5 block w-full text-xs text-slate-400 file:mr-3 file:rounded-xl file:border-0 file:bg-binder-800 file:px-3 file:py-1.5 file:text-xs file:font-bold file:text-amber-400 hover:file:bg-binder-700"
                 />
               </div>
 
@@ -619,7 +641,7 @@ export default function AlbumDetail() {
                 <button
                   type="submit"
                   disabled={submitting}
-                  className="rounded-xl bg-gradient-to-r from-amber-400 to-amber-500 px-5 py-2 text-xs font-black uppercase tracking-wider text-slate-950 hover:brightness-110 disabled:opacity-50"
+                  className="rounded-xl bg-gradient-to-r from-amber-400 via-amber-500 to-amber-600 px-5 py-2 text-xs font-black uppercase tracking-wider text-slate-950 hover:brightness-110 disabled:opacity-50"
                 >
                   {submitting ? 'Guardando...' : 'Añadir Lámina'}
                 </button>
@@ -631,8 +653,8 @@ export default function AlbumDetail() {
 
       {/* Modal Carga Masiva */}
       {showBulkModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 p-4 backdrop-blur-sm">
-          <div className="w-full max-w-lg rounded-2xl border border-binder-700 bg-binder-900 p-6 shadow-2xl">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4 backdrop-blur-md">
+          <div className="w-full max-w-lg rounded-3xl border border-binder-700 bg-binder-900 p-6 shadow-2xl">
             <div className="flex items-center justify-between border-b border-binder-800 pb-3">
               <h3 className="font-display text-xl font-black text-white">Carga Masiva de Láminas</h3>
               <button
@@ -681,7 +703,7 @@ export default function AlbumDetail() {
                 <button
                   type="submit"
                   disabled={submitting}
-                  className="rounded-xl bg-gradient-to-r from-amber-400 to-amber-500 px-5 py-2 text-xs font-black uppercase tracking-wider text-slate-950 hover:brightness-110 disabled:opacity-50"
+                  className="rounded-xl bg-gradient-to-r from-amber-400 via-amber-500 to-amber-600 px-5 py-2 text-xs font-black uppercase tracking-wider text-slate-950 hover:brightness-110 disabled:opacity-50"
                 >
                   {submitting ? 'Procesando...' : 'Cargar Láminas'}
                 </button>

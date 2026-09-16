@@ -6,7 +6,12 @@
   body {
     font-family: 'Plus Jakarta Sans', system-ui, sans-serif;
   }
-  h1, h2, h3, h4, h5, h6 {
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6 {
     font-family: 'Outfit', system-ui, sans-serif;
   }
 }
@@ -54,12 +59,12 @@
   height: 8px;
 }
 ::-webkit-scrollbar-track {
-  background: #0B0F19;
+  background: #0b0f19;
 }
 ::-webkit-scrollbar-thumb {
   background: #273554;
   border-radius: 4px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: #384B75;
+  background: #384b75;
 }

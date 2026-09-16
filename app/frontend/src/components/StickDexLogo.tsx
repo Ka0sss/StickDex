@@ -20,7 +20,9 @@ export function StickDexLogo({ size = 'md', showText = true, className = '' }: L
   return (
     <div className={`flex items-center space-x-3 ${className}`}>
       {/* Isotipo: Lámina coleccionable hexagonal con esquina despegada en 3D y brillo holográfico */}
-      <div className={`relative ${iconSizes[size]} flex-shrink-0 transition-transform duration-300 group-hover:scale-105`}>
+      <div
+        className={`relative ${iconSizes[size]} flex-shrink-0 transition-transform duration-300 group-hover:scale-105`}
+      >
         <svg
           viewBox="0 0 48 48"
           fill="none"
@@ -51,7 +53,13 @@ export function StickDexLogo({ size = 'md', showText = true, className = '' }: L
 
             {/* Sombra de la esquina despegada */}
             <filter id="peelShadow" x="-20%" y="-20%" width="140%" height="140%">
-              <feDropShadow dx="-1.5" dy="2" stdDeviation="2" flood-color="#000000" flood-opacity="0.6" />
+              <feDropShadow
+                dx="-1.5"
+                dy="2"
+                stdDeviation="2"
+                flood-color="#000000"
+                flood-opacity="0.6"
+              />
             </filter>
           </defs>
 
@@ -110,10 +118,14 @@ export function StickDexLogo({ size = 'md', showText = true, className = '' }: L
       {showText && (
         <div className="flex flex-col">
           <div className="flex items-baseline space-x-1">
-            <span className={`font-display font-black tracking-tighter text-white ${textSizes[size]}`}>
+            <span
+              className={`font-display font-black tracking-tighter text-white ${textSizes[size]}`}
+            >
               STICK
             </span>
-            <span className={`font-display font-black tracking-tight text-amber-400 drop-shadow-[0_2px_8px_rgba(245,158,11,0.4)] ${textSizes[size]}`}>
+            <span
+              className={`font-display font-black tracking-tight text-amber-400 drop-shadow-[0_2px_8px_rgba(245,158,11,0.4)] ${textSizes[size]}`}
+            >
               DEX
             </span>
           </div>

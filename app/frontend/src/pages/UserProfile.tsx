@@ -130,7 +130,7 @@ export default function UserProfile() {
                 <div className="mt-6 border-t border-binder-800/80 pt-4">
                   <div className="flex items-center justify-between text-xs">
                     <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400">
-                      Completado
+                      Progreso
                     </span>
                     <span className="font-mono font-black text-amber-400">
                       {pct}% ({collected}/{total})

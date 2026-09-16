@@ -9,7 +9,11 @@ import type {
   DuplicatedSticker,
   Sticker,
 } from '@/types'
-import { addCollectedStickerSchema, updateCollectionSchema } from '@/validations/collection.schema'
+import {
+  addCollectedStickerSchema,
+  updateCollectedStickerSchema,
+  updateCollectionSchema,
+} from '@/validations/collection.schema'
 import { fieldErrors as zodFieldErrors } from '@/validations/common'
 import '@/validations/errorMap'
 
@@ -159,14 +163,22 @@ export default function CollectionDetail() {
 
   const handleUpdateQuantity = async (stickerId: number, currentQty: number, delta: number) => {
     const newQty = currentQty + delta
+
+    if (newQty <= 0) {
+      await handleRemoveSticker(stickerId)
+      return
+    }
+
+    const parsed = updateCollectedStickerSchema.safeParse({ quantity: newQty })
+    if (!parsed.success) {
+      setError(zodFieldErrors(parsed.error).quantity ?? 'Cantidad no válida')
+      return
+    }
+
     try {
-      if (newQty <= 0) {
-        await handleRemoveSticker(stickerId)
-        return
-      }
       await api(`/collections/${id}/stickers/${stickerId}`, {
         method: 'PUT',
-        body: JSON.stringify({ quantity: newQty }),
+        body: JSON.stringify(parsed.data),
       })
       await loadAll()
     } catch (err: unknown) {
@@ -186,10 +198,17 @@ export default function CollectionDetail() {
 
   const handleTogglePublic = async () => {
     if (!collection) return
+
+    const parsed = updateCollectionSchema.safeParse({ isPublic: !collection.isPublic })
+    if (!parsed.success) {
+      setError(zodFieldErrors(parsed.error).isPublic ?? 'Visibilidad no válida')
+      return
+    }
+
     try {
       const updated = await api<CollectionSummary>(`/collections/${id}`, {
         method: 'PUT',
-        body: JSON.stringify({ isPublic: !collection.isPublic }),
+        body: JSON.stringify(parsed.data),
       })
       setCollection((prev) => (prev ? { ...prev, isPublic: updated.isPublic } : null))
     } catch (err: unknown) {

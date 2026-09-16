@@ -1,14 +1,29 @@
 import { useEffect, useState, type FormEvent } from 'react'
 import { Link } from 'react-router-dom'
-import { useAuth } from '../context/AuthContext'
-import { api, getFieldErrors } from '../services/api'
-import type { Album } from '../types'
+import { useAuth } from '@/context/AuthContext'
+import { api, getFieldErrors } from '@/services/api'
+import type { Album } from '@/types'
+import { createAlbumSchema, updateAlbumSchema } from '@/validations/album.schema'
+import { fieldErrors as zodFieldErrors } from '@/validations/common'
+import '@/validations/errorMap'
+
+/** Errores del servidor: por campo (`fieldErrors`) o de formulario (clave `_form`). */
+function serverErrors(
+  err: unknown,
+  fallback: string,
+): { fields: Record<string, string>; form: string | null } {
+  const { _form, ...fields } = getFieldErrors(err)
+  if (_form) return { fields, form: _form }
+  if (Object.keys(fields).length > 0) return { fields, form: null }
+  return { fields, form: err instanceof Error ? err.message : fallback }
+}
 
 export default function AlbumsList() {
   const [albums, setAlbums] = useState<Album[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [showModal, setShowModal] = useState(false)
+  const [editingAlbum, setEditingAlbum] = useState<Album | null>(null)
 
   // Form states
   const [name, setName] = useState('')
@@ -39,24 +54,40 @@ export default function AlbumsList() {
     loadAlbums()
   }, [])
 
-  const handleCreateAlbum = async (e: FormEvent) => {
+  /** Abre el modal en modo creación (`null`) o edición, precargando el formulario. */
+  const openModal = (album: Album | null) => {
+    setName(album?.name ?? '')
+    setDescription(album?.description ?? '')
+    setTotalStickers(album?.totalStickers ?? 10)
+    setReleaseDate(album?.releaseDate ? album.releaseDate.slice(0, 10) : '')
+    setStickerType(album?.stickerType ?? '')
+    setImageFile(null)
+    setFieldErrors({})
+    setModalError(null)
+    setEditingAlbum(album)
+    setShowModal(true)
+  }
+
+  const handleSubmitAlbum = async (e: FormEvent) => {
     e.preventDefault()
-    setSubmitting(true)
     setModalError(null)
     setFieldErrors({})
 
-    const localErrors: Record<string, string> = {}
-    if (!name.trim()) localErrors.name = 'El nombre del álbum es obligatorio'
-    if (!totalStickers || Number(totalStickers) < 1) {
-      localErrors.totalStickers = 'El total de láminas debe ser mayor a 0'
-    }
+    const schema = editingAlbum ? updateAlbumSchema : createAlbumSchema
+    const result = schema.safeParse({
+      name,
+      description,
+      stickerType,
+      totalStickers: Number(totalStickers),
+      releaseDate: releaseDate || null,
+    })
 
-    if (Object.keys(localErrors).length > 0) {
-      setFieldErrors(localErrors)
-      setSubmitting(false)
+    if (!result.success) {
+      setFieldErrors(zodFieldErrors(result.error))
       return
     }
 
+    setSubmitting(true)
     try {
       let imageUrl: string | undefined = undefined
 
@@ -70,31 +101,21 @@ export default function AlbumsList() {
         imageUrl = uploadRes.imageUrl
       }
 
-      await api<Album>('/albums', {
-        method: 'POST',
-        body: JSON.stringify({
-          name: name.trim(),
-          description: description.trim() || undefined,
-          totalStickers: Number(totalStickers),
-          releaseDate: releaseDate || undefined,
-          stickerType: stickerType.trim() || undefined,
-          imageUrl,
-        }),
+      await api<Album>(editingAlbum ? `/albums/${editingAlbum.id}` : '/albums', {
+        method: editingAlbum ? 'PUT' : 'POST',
+        body: JSON.stringify({ ...result.data, imageUrl }),
       })
 
       setShowModal(false)
-      setName('')
-      setDescription('')
-      setImageFile(null)
-      setFieldErrors({})
+      setEditingAlbum(null)
       await loadAlbums()
     } catch (err: unknown) {
-      const zErrors = getFieldErrors(err)
-      if (Object.keys(zErrors).length > 0) {
-        setFieldErrors(zErrors)
-      } else {
-        setModalError(err instanceof Error ? err.message : 'Error al crear álbum')
-      }
+      const { fields, form } = serverErrors(
+        err,
+        editingAlbum ? 'Error al actualizar el álbum' : 'Error al crear el álbum',
+      )
+      setFieldErrors(fields)
+      setModalError(form)
     } finally {
       setSubmitting(false)
     }
@@ -121,17 +142,14 @@ export default function AlbumsList() {
           </h1>
 
           <p className="mt-4 text-base font-medium text-slate-300 leading-relaxed max-w-2xl">
-            Catálogos de torneos, cromos holográficos de edición especial y gestión inteligente de repetidas para intercambio entre coleccionistas.
+            Catálogos de torneos, cromos holográficos de edición especial y gestión inteligente de
+            repetidas para intercambio entre coleccionistas.
           </p>
 
           <div className="mt-8 flex flex-wrap items-center gap-3">
             {user ? (
               <button
-                onClick={() => {
-                  setFieldErrors({})
-                  setModalError(null)
-                  setShowModal(true)
-                }}
+                onClick={() => openModal(null)}
                 className="inline-flex items-center space-x-2 rounded-xl bg-gradient-to-r from-amber-400 via-amber-500 to-amber-600 px-6 py-3 text-xs font-black uppercase tracking-wider text-slate-950 shadow-lg shadow-amber-500/25 transition hover:brightness-110"
               >
                 <span>+</span>
@@ -193,75 +211,94 @@ export default function AlbumsList() {
         {loading ? (
           <div className="py-24 text-center">
             <div className="inline-block h-9 w-9 animate-spin rounded-full border-4 border-amber-400 border-t-transparent" />
-            <p className="mt-3 text-xs font-bold tracking-widest text-slate-400">CARGANDO CATÁLOGO...</p>
+            <p className="mt-3 text-xs font-bold tracking-widest text-slate-400">
+              CARGANDO CATÁLOGO...
+            </p>
           </div>
         ) : albums.length === 0 ? (
           <div className="mt-8 rounded-3xl border border-dashed border-binder-700/80 bg-binder-900/40 py-24 text-center">
             <span className="text-4xl">📖</span>
-            <h3 className="mt-3 font-display text-xl font-black text-white">No hay álbumes disponibles</h3>
-            <p className="mt-1 text-xs text-slate-400">¡Sé el primero en publicar un catálogo de colección!</p>
+            <h3 className="mt-3 font-display text-xl font-black text-white">
+              No hay álbumes disponibles
+            </h3>
+            <p className="mt-1 text-xs text-slate-400">
+              ¡Sé el primero en publicar un catálogo de colección!
+            </p>
           </div>
         ) : (
           <div className="mt-8 grid gap-7 sm:grid-cols-2 lg:grid-cols-3">
             {albums.map((album) => (
-              <Link
+              <div
                 key={album.id}
-                to={`/albums/${album.id}`}
                 className="group relative flex flex-col overflow-hidden rounded-3xl border border-binder-700/80 bg-binder-900/90 shadow-card transition-all duration-300 hover:-translate-y-2 hover:border-amber-400/60 hover:shadow-card-hover"
               >
-                {/* Physical Album Cover (Lomo encuadernado y portada deluxe) */}
-                <div className="relative aspect-[16/10] w-full overflow-hidden bg-binder-950 binder-spine">
-                  {album.imageUrl ? (
-                    <img
-                      src={album.imageUrl}
-                      alt={album.name}
-                      className="h-full w-full object-cover transition duration-500 group-hover:scale-105"
-                    />
-                  ) : (
-                    <div className="flex h-full flex-col items-center justify-center bg-gradient-to-br from-binder-800 to-binder-950 p-6 text-center">
-                      <span className="text-5xl font-black text-slate-700">📖</span>
-                      <p className="mt-2 font-display text-lg font-black text-slate-300">{album.name}</p>
+                {user && album.userId === user.id && (
+                  <button
+                    onClick={() => openModal(album)}
+                    className="absolute right-3 top-3 z-10 rounded-lg border border-amber-400/30 bg-black/70 px-2.5 py-1 text-[10px] font-black uppercase tracking-wider text-amber-300 backdrop-blur-md transition hover:bg-black/90 hover:text-amber-200"
+                    title="Editar este álbum"
+                  >
+                    ✏️ Editar
+                  </button>
+                )}
+
+                <Link to={`/albums/${album.id}`} className="flex flex-1 flex-col">
+                  {/* Physical Album Cover (Lomo encuadernado y portada deluxe) */}
+                  <div className="relative aspect-[16/10] w-full overflow-hidden bg-binder-950 binder-spine">
+                    {album.imageUrl ? (
+                      <img
+                        src={album.imageUrl}
+                        alt={album.name}
+                        className="h-full w-full object-cover transition duration-500 group-hover:scale-105"
+                      />
+                    ) : (
+                      <div className="flex h-full flex-col items-center justify-center bg-gradient-to-br from-binder-800 to-binder-950 p-6 text-center">
+                        <span className="text-5xl font-black text-slate-700">📖</span>
+                        <p className="mt-2 font-display text-lg font-black text-slate-300">
+                          {album.name}
+                        </p>
+                      </div>
+                    )}
+
+                    {/* Badges Flotantes sobre portada */}
+                    <div className="absolute inset-0 bg-gradient-to-t from-binder-950 via-transparent to-transparent opacity-90" />
+
+                    <div className="absolute bottom-3 left-4 right-4 flex items-center justify-between">
+                      <span className="rounded-lg bg-black/70 px-2.5 py-1 text-[10px] font-black uppercase tracking-wider text-amber-300 backdrop-blur-md border border-amber-400/30">
+                        {album.stickerType || 'Fútbol'}
+                      </span>
+                      <span className="rounded-lg bg-black/70 px-2.5 py-1 font-mono text-[11px] font-black text-white backdrop-blur-md border border-white/10">
+                        {album.totalStickers} LÁMINAS
+                      </span>
                     </div>
-                  )}
-
-                  {/* Badges Flotantes sobre portada */}
-                  <div className="absolute inset-0 bg-gradient-to-t from-binder-950 via-transparent to-transparent opacity-90" />
-                  
-                  <div className="absolute bottom-3 left-4 right-4 flex items-center justify-between">
-                    <span className="rounded-lg bg-black/70 px-2.5 py-1 text-[10px] font-black uppercase tracking-wider text-amber-300 backdrop-blur-md border border-amber-400/30">
-                      {album.stickerType || 'Fútbol'}
-                    </span>
-                    <span className="rounded-lg bg-black/70 px-2.5 py-1 font-mono text-[11px] font-black text-white backdrop-blur-md border border-white/10">
-                      {album.totalStickers} LÁMINAS
-                    </span>
                   </div>
-                </div>
 
-                {/* Info del Álbum */}
-                <div className="flex flex-1 flex-col p-6">
-                  <h3 className="font-display text-xl font-black text-white transition group-hover:text-amber-400">
-                    {album.name}
-                  </h3>
-                  
-                  {album.description && (
-                    <p className="mt-2 line-clamp-2 text-xs font-medium text-slate-400 leading-relaxed">
-                      {album.description}
-                    </p>
-                  )}
+                  {/* Info del Álbum */}
+                  <div className="flex flex-1 flex-col p-6">
+                    <h3 className="font-display text-xl font-black text-white transition group-hover:text-amber-400">
+                      {album.name}
+                    </h3>
 
-                  <div className="mt-auto pt-5 flex items-center justify-between border-t border-binder-800/80 text-[11px] font-semibold text-slate-400">
-                    <span>
-                      {album.releaseDate
-                        ? new Date(album.releaseDate).toLocaleDateString()
-                        : 'Edición oficial'}
-                    </span>
-                    <span className="inline-flex items-center space-x-1 font-black uppercase tracking-wider text-amber-400 group-hover:translate-x-1 transition-transform">
-                      <span>Explorar</span>
-                      <span>→</span>
-                    </span>
+                    {album.description && (
+                      <p className="mt-2 line-clamp-2 text-xs font-medium text-slate-400 leading-relaxed">
+                        {album.description}
+                      </p>
+                    )}
+
+                    <div className="mt-auto pt-5 flex items-center justify-between border-t border-binder-800/80 text-[11px] font-semibold text-slate-400">
+                      <span>
+                        {album.releaseDate
+                          ? new Date(album.releaseDate).toLocaleDateString()
+                          : 'Edición oficial'}
+                      </span>
+                      <span className="inline-flex items-center space-x-1 font-black uppercase tracking-wider text-amber-400 group-hover:translate-x-1 transition-transform">
+                        <span>Explorar</span>
+                        <span>→</span>
+                      </span>
+                    </div>
                   </div>
-                </div>
-              </Link>
+                </Link>
+              </div>
             ))}
           </div>
         )}
@@ -273,8 +310,14 @@ export default function AlbumsList() {
           <div className="w-full max-w-lg rounded-3xl border border-binder-700 bg-binder-900 p-6 shadow-2xl sm:p-8">
             <div className="flex items-center justify-between border-b border-binder-800 pb-4">
               <div>
-                <h3 className="font-display text-2xl font-black text-white">Publicar Nuevo Álbum</h3>
-                <p className="text-xs text-slate-400">Crea el catálogo oficial con su capacidad de láminas</p>
+                <h3 className="font-display text-2xl font-black text-white">
+                  {editingAlbum ? 'Editar Álbum' : 'Publicar Nuevo Álbum'}
+                </h3>
+                <p className="text-xs text-slate-400">
+                  {editingAlbum
+                    ? 'Actualiza los datos del catálogo oficial'
+                    : 'Crea el catálogo oficial con su capacidad de láminas'}
+                </p>
               </div>
               <button
                 onClick={() => setShowModal(false)}
@@ -290,7 +333,7 @@ export default function AlbumsList() {
               </div>
             )}
 
-            <form noValidate onSubmit={handleCreateAlbum} className="mt-5 space-y-4">
+            <form noValidate onSubmit={handleSubmitAlbum} className="mt-5 space-y-4">
               <div>
                 <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-300">
                   Nombre del Álbum
@@ -320,11 +363,24 @@ export default function AlbumsList() {
                 </label>
                 <textarea
                   value={description}
-                  onChange={(e) => setDescription(e.target.value)}
-                  className="mt-1.5 w-full rounded-xl border border-binder-700 bg-binder-950 px-3.5 py-2 text-sm text-white placeholder-slate-500 focus:border-amber-400 focus:outline-none"
+                  onChange={(e) => {
+                    setDescription(e.target.value)
+                    if (fieldErrors.description)
+                      setFieldErrors((prev) => ({ ...prev, description: '' }))
+                  }}
+                  className={`mt-1.5 w-full rounded-xl border bg-binder-950 px-3.5 py-2 text-sm text-white placeholder-slate-500 focus:outline-none ${
+                    fieldErrors.description
+                      ? 'border-red-500 focus:border-red-500'
+                      : 'border-binder-700 focus:border-amber-400'
+                  }`}
                   rows={2}
                   placeholder="Reseña del torneo o colección..."
                 />
+                {fieldErrors.description && (
+                  <p className="mt-1.5 text-xs font-semibold text-red-400">
+                    {fieldErrors.description}
+                  </p>
+                )}
               </div>
 
               <div className="grid grid-cols-2 gap-3">
@@ -338,7 +394,8 @@ export default function AlbumsList() {
                     value={totalStickers}
                     onChange={(e) => {
                       setTotalStickers(e.target.value === '' ? '' : Number(e.target.value))
-                      if (fieldErrors.totalStickers) setFieldErrors((prev) => ({ ...prev, totalStickers: '' }))
+                      if (fieldErrors.totalStickers)
+                        setFieldErrors((prev) => ({ ...prev, totalStickers: '' }))
                     }}
                     className={`mt-1.5 w-full rounded-xl border bg-binder-950 px-3.5 py-2 text-sm text-white focus:outline-none ${
                       fieldErrors.totalStickers
@@ -347,7 +404,9 @@ export default function AlbumsList() {
                     }`}
                   />
                   {fieldErrors.totalStickers && (
-                    <p className="mt-1.5 text-xs font-semibold text-red-400">{fieldErrors.totalStickers}</p>
+                    <p className="mt-1.5 text-xs font-semibold text-red-400">
+                      {fieldErrors.totalStickers}
+                    </p>
                   )}
                 </div>
                 <div>
@@ -357,10 +416,23 @@ export default function AlbumsList() {
                   <input
                     type="text"
                     value={stickerType}
-                    onChange={(e) => setStickerType(e.target.value)}
-                    className="mt-1.5 w-full rounded-xl border border-binder-700 bg-binder-950 px-3.5 py-2 text-sm text-white placeholder-slate-500 focus:border-amber-400 focus:outline-none"
+                    onChange={(e) => {
+                      setStickerType(e.target.value)
+                      if (fieldErrors.stickerType)
+                        setFieldErrors((prev) => ({ ...prev, stickerType: '' }))
+                    }}
+                    className={`mt-1.5 w-full rounded-xl border bg-binder-950 px-3.5 py-2 text-sm text-white placeholder-slate-500 focus:outline-none ${
+                      fieldErrors.stickerType
+                        ? 'border-red-500 focus:border-red-500'
+                        : 'border-binder-700 focus:border-amber-400'
+                    }`}
                     placeholder="Fútbol, Básquetbol..."
                   />
+                  {fieldErrors.stickerType && (
+                    <p className="mt-1.5 text-xs font-semibold text-red-400">
+                      {fieldErrors.stickerType}
+                    </p>
+                  )}
                 </div>
               </div>
 
@@ -386,6 +458,11 @@ export default function AlbumsList() {
                   onChange={(e) => setImageFile(e.target.files?.[0] || null)}
                   className="mt-1.5 block w-full text-xs text-slate-400 file:mr-3 file:rounded-xl file:border-0 file:bg-binder-800 file:px-3 file:py-1.5 file:text-xs file:font-bold file:text-amber-400 hover:file:bg-binder-700"
                 />
+                {editingAlbum?.imageUrl && !imageFile && (
+                  <p className="mt-1.5 text-[11px] font-medium text-slate-500">
+                    Déjalo vacío para conservar la portada actual.
+                  </p>
+                )}
               </div>
 
               <div className="mt-6 flex justify-end space-x-3 border-t border-binder-800 pt-4">
@@ -401,7 +478,11 @@ export default function AlbumsList() {
                   disabled={submitting}
                   className="rounded-xl bg-gradient-to-r from-amber-400 via-amber-500 to-amber-600 px-6 py-2 text-xs font-black uppercase tracking-wider text-slate-950 hover:brightness-110 disabled:opacity-50"
                 >
-                  {submitting ? 'Guardando...' : 'Publicar Álbum'}
+                  {submitting
+                    ? 'Guardando...'
+                    : editingAlbum
+                      ? 'Guardar Cambios'
+                      : 'Publicar Álbum'}
                 </button>
               </div>
             </form>

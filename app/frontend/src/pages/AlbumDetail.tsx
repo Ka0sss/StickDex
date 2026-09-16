@@ -1,20 +1,52 @@
 import { useEffect, useState, type FormEvent } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
-import { useAuth } from '../context/AuthContext'
-import { api, getFieldErrors } from '../services/api'
-import type { Album, Sticker } from '../types'
+import { useAuth } from '@/context/AuthContext'
+import { api, getFieldErrors, getIssues, isApiError } from '@/services/api'
+import type { Album, Sticker } from '@/types'
+import {
+  createStickerSchema,
+  createStickersBulkSchema,
+  MAX_BULK_STICKERS,
+  updateStickerSchema,
+} from '@/validations/sticker.schema'
+import { fieldErrors as zodFieldErrors } from '@/validations/common'
+import '@/validations/errorMap'
+
+/** Errores del servidor: por campo (`fieldErrors`) o de formulario (clave `_form`). */
+function serverErrors(
+  err: unknown,
+  fallback: string,
+): { fields: Record<string, string>; form: string | null } {
+  const { _form, ...fields } = getFieldErrors(err)
+  if (_form) return { fields, form: _form }
+  if (Object.keys(fields).length > 0) return { fields, form: null }
+  return { fields, form: err instanceof Error ? err.message : fallback }
+}
+
+/** Lámina leída del textarea, junto al número de línea del que proviene. */
+interface ParsedBulkRow {
+  line: number
+  sticker: { number: number; name: string; type?: string }
+}
+
+/** Error de la carga masiva: `line` es la línea del textarea, o `null` si es general. */
+interface BulkIssue {
+  line: number | null
+  message: string
+}
 
 export default function AlbumDetail() {
   const { id } = useParams<{ id: string }>()
-  const [album, setAlbum] = useState<(Album & { stickers: Sticker[] }) | null>(null)
+  const [album, setAlbum] = useState<Album | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
   // Zoom / Acrylic Display Inspector Modal
   const [inspectedSticker, setInspectedSticker] = useState<Sticker | null>(null)
 
-  // Add Sticker Modal
+  // Add / Edit Sticker Modal
   const [showAddModal, setShowAddModal] = useState(false)
+  const [editingSticker, setEditingSticker] = useState<Sticker | null>(null)
   const [stickerNumber, setStickerNumber] = useState<number | ''>('')
   const [stickerName, setStickerName] = useState('')
   const [stickerType, setStickerType] = useState('')
@@ -25,7 +57,7 @@ export default function AlbumDetail() {
   // Bulk Modal
   const [showBulkModal, setShowBulkModal] = useState(false)
   const [bulkInput, setBulkInput] = useState('')
-  const [bulkError, setBulkError] = useState<string | null>(null)
+  const [bulkIssues, setBulkIssues] = useState<BulkIssue[]>([])
 
   // Inline confirmations
   const [deletingStickerId, setDeletingStickerId] = useState<number | null>(null)
@@ -38,7 +70,7 @@ export default function AlbumDetail() {
   const loadAlbum = async () => {
     try {
       setLoading(true)
-      const data = await api<Album & { stickers: Sticker[] }>(`/albums/${id}`)
+      const data = await api<Album>(`/albums/${id}`)
       setAlbum(data)
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Error al cargar el álbum')
@@ -53,27 +85,37 @@ export default function AlbumDetail() {
 
   const isOwner = user && album && album.userId === user.id
 
-  const handleAddSticker = async (e: FormEvent) => {
+  /** Abre el modal de lámina en modo creación (`null`) o edición, precargando el formulario. */
+  const openStickerModal = (sticker: Sticker | null) => {
+    setStickerNumber(sticker?.number ?? '')
+    setStickerName(sticker?.name ?? '')
+    setStickerType(sticker?.type ?? '')
+    setStickerFile(null)
+    setStickerErrors({})
+    setModalError(null)
+    setEditingSticker(sticker)
+    setShowAddModal(true)
+  }
+
+  const handleSubmitSticker = async (e: FormEvent) => {
     e.preventDefault()
     if (!album) return
-    setSubmitting(true)
     setModalError(null)
     setStickerErrors({})
 
-    const localErrors: Record<string, string> = {}
-    if (!stickerNumber || Number(stickerNumber) < 1) {
-      localErrors.number = 'El número debe ser mayor a 0'
-    }
-    if (!stickerName.trim()) {
-      localErrors.name = 'El nombre de la lámina es obligatorio'
-    }
+    const schema = editingSticker ? updateStickerSchema : createStickerSchema
+    const result = schema.safeParse({
+      number: Number(stickerNumber),
+      name: stickerName,
+      type: stickerType,
+    })
 
-    if (Object.keys(localErrors).length > 0) {
-      setStickerErrors(localErrors)
-      setSubmitting(false)
+    if (!result.success) {
+      setStickerErrors(zodFieldErrors(result.error))
       return
     }
 
+    setSubmitting(true)
     try {
       let imageUrl: string | undefined = undefined
       if (stickerFile) {
@@ -86,30 +128,30 @@ export default function AlbumDetail() {
         imageUrl = uploadRes.imageUrl
       }
 
-      await api<Sticker>(`/albums/${album.id}/stickers`, {
-        method: 'POST',
-        body: JSON.stringify({
-          number: Number(stickerNumber),
-          name: stickerName.trim(),
-          type: stickerType.trim() || undefined,
-          imageUrl,
-        }),
-      })
+      await api<Sticker>(
+        editingSticker ? `/stickers/${editingSticker.id}` : `/albums/${album.id}/stickers`,
+        {
+          method: editingSticker ? 'PUT' : 'POST',
+          body: JSON.stringify({ ...result.data, imageUrl }),
+        },
+      )
 
       setShowAddModal(false)
-      setStickerNumber('')
-      setStickerName('')
-      setStickerType('')
-      setStickerFile(null)
-      setStickerErrors({})
+      setEditingSticker(null)
       await loadAlbum()
     } catch (err: unknown) {
-      const zErrors = getFieldErrors(err)
-      if (Object.keys(zErrors).length > 0) {
-        setStickerErrors(zErrors)
-      } else {
-        setModalError(err instanceof Error ? err.message : 'Error al agregar lámina')
+      // 409: ya existe una lámina con ese número dentro del álbum.
+      if (isApiError(err) && err.status === 409) {
+        setStickerErrors({ number: err.message })
+        return
       }
+
+      const { fields, form } = serverErrors(
+        err,
+        editingSticker ? 'Error al actualizar la lámina' : 'Error al agregar lámina',
+      )
+      setStickerErrors(fields)
+      setModalError(form)
     } finally {
       setSubmitting(false)
     }
@@ -118,42 +160,51 @@ export default function AlbumDetail() {
   const handleBulkCreate = async (e: FormEvent) => {
     e.preventDefault()
     if (!album) return
+    setBulkIssues([])
+
+    // Cada línea no vacía del textarea es una lámina con formato `Número, Nombre, Tipo`.
+    const rows: ParsedBulkRow[] = []
+    bulkInput.split('\n').forEach((raw, index) => {
+      if (raw.trim() === '') return
+      const parts = raw.split(/[,;\t]/).map((part) => part.trim())
+      rows.push({
+        line: index + 1,
+        sticker: { number: Number(parts[0]), name: parts[1] ?? '', type: parts[2] || undefined },
+      })
+    })
+
+    const result = createStickersBulkSchema.safeParse({ stickers: rows.map((row) => row.sticker) })
+    if (!result.success) {
+      setBulkIssues(
+        result.error.issues.map((issue) => ({
+          line: rows[Number(issue.path[1])]?.line ?? null,
+          message: issue.message,
+        })),
+      )
+      return
+    }
+
     setSubmitting(true)
-    setBulkError(null)
-
     try {
-      const lines = bulkInput.trim().split('\n')
-      const stickers: Array<{ number: number; name: string; type?: string }> = []
-
-      for (const line of lines) {
-        const parts = line.split(/[,;\t]/).map((p) => p.trim())
-        if (parts.length >= 2) {
-          const number = parseInt(parts[0], 10)
-          const name = parts[1]
-          const type = parts[2] || undefined
-          if (!isNaN(number) && name) {
-            stickers.push({ number, name, type })
-          }
-        }
-      }
-
-      if (stickers.length === 0) {
-        setBulkError('Formato inválido. Usa: "1, Nombre Lámina, Tipo" por línea')
-        setSubmitting(false)
-        return
-      }
-
       await api(`/albums/${album.id}/stickers/bulk`, {
         method: 'POST',
-        body: JSON.stringify({ stickers }),
+        body: JSON.stringify(result.data),
       })
 
       setShowBulkModal(false)
       setBulkInput('')
-      setBulkError(null)
+      setBulkIssues([])
       await loadAlbum()
     } catch (err: unknown) {
-      setBulkError(err instanceof Error ? err.message : 'Error en carga masiva')
+      const apiIssues = getIssues(err)
+      setBulkIssues(
+        apiIssues.length > 0
+          ? apiIssues.map((issue) => ({
+              line: rows[Number(issue.path.split('.')[1])]?.line ?? null,
+              message: issue.message,
+            }))
+          : [{ line: null, message: err instanceof Error ? err.message : 'Error en carga masiva' }],
+      )
     } finally {
       setSubmitting(false)
     }
@@ -193,16 +244,19 @@ export default function AlbumDetail() {
     return (
       <div className="py-20 text-center">
         <p className="font-display text-xl font-black text-red-400">Álbum no encontrado</p>
-        <Link to="/albums" className="mt-4 inline-block text-xs font-bold text-amber-400 hover:underline">
+        <Link
+          to="/albums"
+          className="mt-4 inline-block text-xs font-bold text-amber-400 hover:underline"
+        >
           ← Volver al catálogo de álbumes
         </Link>
       </div>
     )
   }
 
-  const totalCapacity = Math.max(album.totalStickers, album.stickers?.length || 0)
-  const stickersCount = album.stickers?.length || 0
-  const isCatalogComplete = stickersCount >= totalCapacity
+  const stickers = album.stickers ?? []
+  const stickersCount = stickers.length
+  const isCatalogComplete = stickersCount >= album.totalStickers
 
   return (
     <div className="space-y-8">
@@ -278,7 +332,9 @@ export default function AlbumDetail() {
                 <span className="text-[10px] font-black uppercase tracking-wider text-slate-400">
                   Capacidad Total
                 </span>
-                <p className="font-mono text-lg font-black text-white">{totalCapacity} láminas</p>
+                <p className="font-mono text-lg font-black text-white">
+                  {album.totalStickers} láminas
+                </p>
               </div>
 
               <div className="rounded-2xl border border-binder-700/80 bg-binder-950/70 px-4 py-2.5">
@@ -286,7 +342,7 @@ export default function AlbumDetail() {
                   Láminas en Catálogo
                 </span>
                 <p className="font-mono text-lg font-black text-amber-400">
-                  {stickersCount} de {totalCapacity}
+                  {stickersCount} de {album.totalStickers}
                 </p>
               </div>
 
@@ -338,11 +394,7 @@ export default function AlbumDetail() {
       {isOwner && (
         <div className="flex flex-wrap items-center gap-3">
           <button
-            onClick={() => {
-              setModalError(null)
-              setStickerErrors({})
-              setShowAddModal(true)
-            }}
+            onClick={() => openStickerModal(null)}
             className="inline-flex items-center space-x-2 rounded-xl bg-gradient-to-r from-amber-400 via-amber-500 to-amber-600 px-5 py-2.5 text-xs font-black uppercase tracking-wider text-slate-950 shadow-lg shadow-amber-500/20 hover:brightness-110"
           >
             <span>+</span>
@@ -350,7 +402,7 @@ export default function AlbumDetail() {
           </button>
           <button
             onClick={() => {
-              setBulkError(null)
+              setBulkIssues([])
               setShowBulkModal(true)
             }}
             className="inline-flex items-center space-x-1.5 rounded-xl border border-binder-700 bg-binder-800/80 px-4 py-2.5 text-xs font-bold text-slate-200 hover:bg-binder-700 hover:text-white"
@@ -374,7 +426,7 @@ export default function AlbumDetail() {
       </div>
 
       {/* Sticker Grid: Grandes, Proporcionadas y con Acabado Coleccionista */}
-      {!album.stickers || album.stickers.length === 0 ? (
+      {stickers.length === 0 ? (
         <div className="rounded-3xl border border-dashed border-binder-700/80 bg-binder-900/40 py-20 text-center">
           <span className="text-4xl">🃏</span>
           <h3 className="mt-3 font-display text-xl font-black text-white">Álbum vacío</h3>
@@ -384,7 +436,7 @@ export default function AlbumDetail() {
         </div>
       ) : (
         <div className="grid grid-cols-2 gap-5 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-5">
-          {album.stickers.map((st) => {
+          {stickers.map((st) => {
             const isSpecial =
               st.type?.toLowerCase().includes('brillante') ||
               st.type?.toLowerCase().includes('especial') ||
@@ -413,8 +465,12 @@ export default function AlbumDetail() {
                     />
                   ) : (
                     <div className="flex h-full flex-col items-center justify-center p-3 text-center">
-                      <span className="font-mono text-3xl font-black text-slate-700">#{st.number}</span>
-                      <p className="mt-2 font-display text-xs font-bold text-slate-300">{st.name}</p>
+                      <span className="font-mono text-3xl font-black text-slate-700">
+                        #{st.number}
+                      </span>
+                      <p className="mt-2 font-display text-xs font-bold text-slate-300">
+                        {st.name}
+                      </p>
                       {st.type && (
                         <span className="mt-1 text-[10px] font-bold text-amber-400">{st.type}</span>
                       )}
@@ -434,7 +490,10 @@ export default function AlbumDetail() {
                   <span className="font-mono text-xs font-black text-amber-400">
                     #{st.number < 10 ? `0${st.number}` : st.number}
                   </span>
-                  <p className="truncate px-2 text-center text-xs font-black text-white" title={st.name}>
+                  <p
+                    className="truncate px-2 text-center text-xs font-black text-white"
+                    title={st.name}
+                  >
                     {st.name}
                   </p>
                   {st.type ? (
@@ -466,12 +525,20 @@ export default function AlbumDetail() {
                         </button>
                       </div>
                     ) : (
-                      <button
-                        onClick={() => setDeletingStickerId(st.id)}
-                        className="text-[10px] font-bold text-slate-500 transition hover:text-red-400 hover:underline"
-                      >
-                        Eliminar lámina
-                      </button>
+                      <div className="flex items-center justify-center space-x-3">
+                        <button
+                          onClick={() => openStickerModal(st)}
+                          className="text-[10px] font-bold text-slate-500 transition hover:text-amber-400 hover:underline"
+                        >
+                          Editar
+                        </button>
+                        <button
+                          onClick={() => setDeletingStickerId(st.id)}
+                          className="text-[10px] font-bold text-slate-500 transition hover:text-red-400 hover:underline"
+                        >
+                          Eliminar lámina
+                        </button>
+                      </div>
                     )}
                   </div>
                 )}
@@ -541,7 +608,16 @@ export default function AlbumDetail() {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4 backdrop-blur-md">
           <div className="w-full max-w-md rounded-3xl border border-binder-700 bg-binder-900 p-6 shadow-2xl">
             <div className="flex items-center justify-between border-b border-binder-800 pb-3">
-              <h3 className="font-display text-xl font-black text-white">Añadir Lámina al Álbum</h3>
+              <div>
+                <h3 className="font-display text-xl font-black text-white">
+                  {editingSticker ? 'Editar Lámina' : 'Añadir Lámina al Álbum'}
+                </h3>
+                <p className="text-xs text-slate-400">
+                  {editingSticker
+                    ? `Lámina #${editingSticker.number} de este álbum`
+                    : 'La lámina se publica en el catálogo oficial'}
+                </p>
+              </div>
               <button
                 onClick={() => setShowAddModal(false)}
                 className="text-slate-400 hover:text-white"
@@ -556,7 +632,7 @@ export default function AlbumDetail() {
               </div>
             )}
 
-            <form noValidate onSubmit={handleAddSticker} className="mt-4 space-y-4">
+            <form noValidate onSubmit={handleSubmitSticker} className="mt-4 space-y-4">
               <div className="grid grid-cols-3 gap-3">
                 <div className="col-span-1">
                   <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-300">
@@ -568,7 +644,8 @@ export default function AlbumDetail() {
                     value={stickerNumber}
                     onChange={(e) => {
                       setStickerNumber(e.target.value === '' ? '' : Number(e.target.value))
-                      if (stickerErrors.number) setStickerErrors((prev) => ({ ...prev, number: '' }))
+                      if (stickerErrors.number)
+                        setStickerErrors((prev) => ({ ...prev, number: '' }))
                     }}
                     className={`mt-1.5 w-full rounded-xl border bg-binder-950 px-3.5 py-2.5 text-sm font-mono text-white focus:outline-none ${
                       stickerErrors.number
@@ -578,7 +655,9 @@ export default function AlbumDetail() {
                     placeholder="1"
                   />
                   {stickerErrors.number && (
-                    <p className="mt-1 text-xs font-semibold text-red-400">{stickerErrors.number}</p>
+                    <p className="mt-1 text-xs font-semibold text-red-400">
+                      {stickerErrors.number}
+                    </p>
                   )}
                 </div>
                 <div className="col-span-2">
@@ -628,6 +707,11 @@ export default function AlbumDetail() {
                   onChange={(e) => setStickerFile(e.target.files?.[0] || null)}
                   className="mt-1.5 block w-full text-xs text-slate-400 file:mr-3 file:rounded-xl file:border-0 file:bg-binder-800 file:px-3 file:py-1.5 file:text-xs file:font-bold file:text-amber-400 hover:file:bg-binder-700"
                 />
+                {editingSticker?.imageUrl && !stickerFile && (
+                  <p className="mt-1.5 text-[11px] font-medium text-slate-500">
+                    Déjalo vacío para conservar la imagen actual.
+                  </p>
+                )}
               </div>
 
               <div className="mt-6 flex justify-end space-x-3 border-t border-binder-800 pt-4">
@@ -643,7 +727,11 @@ export default function AlbumDetail() {
                   disabled={submitting}
                   className="rounded-xl bg-gradient-to-r from-amber-400 via-amber-500 to-amber-600 px-5 py-2 text-xs font-black uppercase tracking-wider text-slate-950 hover:brightness-110 disabled:opacity-50"
                 >
-                  {submitting ? 'Guardando...' : 'Añadir Lámina'}
+                  {submitting
+                    ? 'Guardando...'
+                    : editingSticker
+                      ? 'Guardar Cambios'
+                      : 'Añadir Lámina'}
                 </button>
               </div>
             </form>
@@ -656,7 +744,9 @@ export default function AlbumDetail() {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4 backdrop-blur-md">
           <div className="w-full max-w-lg rounded-3xl border border-binder-700 bg-binder-900 p-6 shadow-2xl">
             <div className="flex items-center justify-between border-b border-binder-800 pb-3">
-              <h3 className="font-display text-xl font-black text-white">Carga Masiva de Láminas</h3>
+              <h3 className="font-display text-xl font-black text-white">
+                Carga Masiva de Láminas
+              </h3>
               <button
                 onClick={() => setShowBulkModal(false)}
                 className="text-slate-400 hover:text-white"
@@ -669,13 +759,18 @@ export default function AlbumDetail() {
               Ingresa una lámina por línea en formato:{' '}
               <code className="rounded bg-binder-950 px-1.5 py-0.5 font-mono text-amber-300">
                 Número, Nombre, Tipo
-              </code>
+              </code>{' '}
+              (hasta {MAX_BULK_STICKERS} láminas por carga)
             </p>
 
-            {bulkError && (
-              <div className="mt-3 rounded-xl border border-red-500/30 bg-red-950/40 p-3 text-xs font-semibold text-red-300">
-                {bulkError}
-              </div>
+            {bulkIssues.length > 0 && (
+              <ul className="mt-3 space-y-1 rounded-xl border border-red-500/30 bg-red-950/40 p-3 text-xs font-semibold text-red-300">
+                {bulkIssues.map((issue, index) => (
+                  <li key={index}>
+                    {issue.line === null ? issue.message : `Fila ${issue.line}: ${issue.message}`}
+                  </li>
+                ))}
+              </ul>
             )}
 
             <form noValidate onSubmit={handleBulkCreate} className="mt-4 space-y-4">
@@ -684,10 +779,12 @@ export default function AlbumDetail() {
                 value={bulkInput}
                 onChange={(e) => {
                   setBulkInput(e.target.value)
-                  if (bulkError) setBulkError(null)
+                  if (bulkIssues.length > 0) setBulkIssues([])
                 }}
                 className={`w-full rounded-xl border bg-binder-950 p-3 font-mono text-xs text-white placeholder-slate-600 focus:outline-none ${
-                  bulkError ? 'border-red-500' : 'border-binder-700 focus:border-amber-400'
+                  bulkIssues.length > 0
+                    ? 'border-red-500'
+                    : 'border-binder-700 focus:border-amber-400'
                 }`}
                 placeholder={`1, Escudo FIFA, Brillante\n2, Lionel Messi, Capitán\n3, Kylian Mbappé, Delantero`}
               />

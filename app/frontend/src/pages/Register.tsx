@@ -1,7 +1,21 @@
 import { useState, type FormEvent } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { useAuth } from '../context/AuthContext'
-import { getFieldErrors } from '../services/api'
+import { useAuth } from '@/context/AuthContext'
+import { getFieldErrors } from '@/services/api'
+import { registerSchema } from '@/validations/auth.schema'
+import { fieldErrors as zodFieldErrors } from '@/validations/common'
+import '@/validations/errorMap'
+
+/** Errores del servidor: por campo (`fieldErrors`) o de formulario (clave `_form`). */
+function serverErrors(
+  err: unknown,
+  fallback: string,
+): { fields: Record<string, string>; form: string | null } {
+  const { _form, ...fields } = getFieldErrors(err)
+  if (_form) return { fields, form: _form }
+  if (Object.keys(fields).length > 0) return { fields, form: null }
+  return { fields, form: err instanceof Error ? err.message : fallback }
+}
 
 export default function Register() {
   const [username, setUsername] = useState('')
@@ -18,27 +32,20 @@ export default function Register() {
     setGeneralError(null)
     setFieldErrors({})
 
-    const errors: Record<string, string> = {}
-    if (username.trim().length < 3) errors.username = 'El usuario debe tener al menos 3 caracteres'
-    if (!email.trim() || !email.includes('@')) errors.email = 'Introduce un email válido'
-    if (password.length < 8) errors.password = 'La contraseña debe tener al menos 8 caracteres'
-
-    if (Object.keys(errors).length > 0) {
-      setFieldErrors(errors)
+    const result = registerSchema.safeParse({ username, email, password })
+    if (!result.success) {
+      setFieldErrors(zodFieldErrors(result.error))
       return
     }
 
     setLoading(true)
     try {
-      await register(username, email, password)
+      await register(result.data.username, result.data.email, result.data.password)
       navigate('/albums')
     } catch (err: unknown) {
-      const zErrors = getFieldErrors(err)
-      if (Object.keys(zErrors).length > 0) {
-        setFieldErrors(zErrors)
-      } else {
-        setGeneralError(err instanceof Error ? err.message : 'Error al registrarse')
-      }
+      const { fields, form } = serverErrors(err, 'Error al registrarse')
+      setFieldErrors(fields)
+      setGeneralError(form)
     } finally {
       setLoading(false)
     }

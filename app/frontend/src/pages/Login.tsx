@@ -1,7 +1,21 @@
 import { useState, type FormEvent } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { useAuth } from '../context/AuthContext'
-import { getFieldErrors } from '../services/api'
+import { useAuth } from '@/context/AuthContext'
+import { getFieldErrors } from '@/services/api'
+import { loginSchema } from '@/validations/auth.schema'
+import { fieldErrors as zodFieldErrors } from '@/validations/common'
+import '@/validations/errorMap'
+
+/** Errores del servidor: por campo (`fieldErrors`) o de formulario (clave `_form`). */
+function serverErrors(
+  err: unknown,
+  fallback: string,
+): { fields: Record<string, string>; form: string | null } {
+  const { _form, ...fields } = getFieldErrors(err)
+  if (_form) return { fields, form: _form }
+  if (Object.keys(fields).length > 0) return { fields, form: null }
+  return { fields, form: err instanceof Error ? err.message : fallback }
+}
 
 export default function Login() {
   const [email, setEmail] = useState('')
@@ -17,26 +31,20 @@ export default function Login() {
     setGeneralError(null)
     setFieldErrors({})
 
-    const errors: Record<string, string> = {}
-    if (!email.trim()) errors.email = 'El email es obligatorio'
-    if (!password) errors.password = 'La contraseña es obligatoria'
-
-    if (Object.keys(errors).length > 0) {
-      setFieldErrors(errors)
+    const result = loginSchema.safeParse({ email, password })
+    if (!result.success) {
+      setFieldErrors(zodFieldErrors(result.error))
       return
     }
 
     setLoading(true)
     try {
-      await login(email, password)
+      await login(result.data.email, result.data.password)
       navigate('/albums')
     } catch (err: unknown) {
-      const zErrors = getFieldErrors(err)
-      if (Object.keys(zErrors).length > 0) {
-        setFieldErrors(zErrors)
-      } else {
-        setGeneralError(err instanceof Error ? err.message : 'Error al iniciar sesión')
-      }
+      const { fields, form } = serverErrors(err, 'Error al iniciar sesión')
+      setFieldErrors(fields)
+      setGeneralError(form)
     } finally {
       setLoading(false)
     }

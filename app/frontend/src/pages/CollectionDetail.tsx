@@ -1,12 +1,32 @@
 import { useEffect, useState, type FormEvent } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
-import { useAuth } from '../context/AuthContext'
-import { api, getFieldErrors } from '../services/api'
-import type { Album, Collection, DuplicatedSticker, Sticker } from '../types'
+import { useAuth } from '@/context/AuthContext'
+import { api, getFieldErrors } from '@/services/api'
+import type {
+  Album,
+  CollectionDetail as CollectionDetailData,
+  CollectionSummary,
+  DuplicatedSticker,
+  Sticker,
+} from '@/types'
+import { addCollectedStickerSchema, updateCollectionSchema } from '@/validations/collection.schema'
+import { fieldErrors as zodFieldErrors } from '@/validations/common'
+import '@/validations/errorMap'
+
+/** Errores del servidor: por campo (`fieldErrors`) o de formulario (clave `_form`). */
+function serverErrors(
+  err: unknown,
+  fallback: string,
+): { fields: Record<string, string>; form: string | null } {
+  const { _form, ...fields } = getFieldErrors(err)
+  if (_form) return { fields, form: _form }
+  if (Object.keys(fields).length > 0) return { fields, form: null }
+  return { fields, form: err instanceof Error ? err.message : fallback }
+}
 
 export default function CollectionDetail() {
   const { id } = useParams<{ id: string }>()
-  const [collection, setCollection] = useState<Collection | null>(null)
+  const [collection, setCollection] = useState<CollectionDetailData | null>(null)
   const [missingStickers, setMissingStickers] = useState<Sticker[]>([])
   const [duplicateStickers, setDuplicateStickers] = useState<DuplicatedSticker[]>([])
   const [albumStickers, setAlbumStickers] = useState<Sticker[]>([])
@@ -26,6 +46,12 @@ export default function CollectionDetail() {
   const [modalError, setModalError] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
 
+  // Rename Modal
+  const [showRenameModal, setShowRenameModal] = useState(false)
+  const [renameName, setRenameName] = useState('')
+  const [renameErrors, setRenameErrors] = useState<Record<string, string>>({})
+  const [renameFormError, setRenameFormError] = useState<string | null>(null)
+
   // Inline confirmations
   const [removingStickerId, setRemovingStickerId] = useState<number | null>(null)
   const [confirmDeleteCollection, setConfirmDeleteCollection] = useState(false)
@@ -36,7 +62,7 @@ export default function CollectionDetail() {
   const loadAll = async () => {
     try {
       setLoading(true)
-      const col = await api<Collection>(`/collections/${id}`)
+      const col = await api<CollectionDetailData>(`/collections/${id}`)
       setCollection(col)
 
       // Fetch reports
@@ -49,10 +75,11 @@ export default function CollectionDetail() {
 
       // If owner, load album stickers for adding
       if (col.albumId) {
-        const fullAlbum = await api<Album & { stickers: Sticker[] }>(`/albums/${col.albumId}`)
-        setAlbumStickers(fullAlbum.stickers || [])
-        if (fullAlbum.stickers?.length > 0 && selectedStickerId === '') {
-          setSelectedStickerId(fullAlbum.stickers[0].id)
+        const fullAlbum = await api<Album>(`/albums/${col.albumId}`)
+        const albumStickerList = fullAlbum.stickers ?? []
+        setAlbumStickers(albumStickerList)
+        if (albumStickerList.length > 0 && selectedStickerId === '') {
+          setSelectedStickerId(albumStickerList[0].id)
         }
       }
     } catch (err: unknown) {
@@ -70,41 +97,61 @@ export default function CollectionDetail() {
 
   const handleAddSticker = async (e: FormEvent) => {
     e.preventDefault()
-    if (!selectedStickerId) return
-    setSubmitting(true)
     setModalError(null)
     setStickerErrors({})
 
-    const localErrors: Record<string, string> = {}
-    if (!selectedStickerId) localErrors.stickerId = 'Debes seleccionar una lámina'
-    if (!quantity || Number(quantity) < 1) localErrors.quantity = 'La cantidad debe ser al menos 1'
+    const result = addCollectedStickerSchema.safeParse({
+      stickerId: Number(selectedStickerId),
+      quantity: Number(quantity),
+    })
 
-    if (Object.keys(localErrors).length > 0) {
-      setStickerErrors(localErrors)
-      setSubmitting(false)
+    if (!result.success) {
+      setStickerErrors(zodFieldErrors(result.error))
       return
     }
 
+    setSubmitting(true)
     try {
       await api(`/collections/${id}/stickers`, {
         method: 'POST',
-        body: JSON.stringify({
-          stickerId: Number(selectedStickerId),
-          quantity: Number(quantity),
-          isDuplicated: Number(quantity) > 1,
-        }),
+        body: JSON.stringify(result.data),
       })
       setShowAddModal(false)
       setQuantity(1)
       setStickerErrors({})
       await loadAll()
     } catch (err: unknown) {
-      const zErrors = getFieldErrors(err)
-      if (Object.keys(zErrors).length > 0) {
-        setStickerErrors(zErrors)
-      } else {
-        setModalError(err instanceof Error ? err.message : 'Error al añadir lámina')
-      }
+      const { fields, form } = serverErrors(err, 'Error al añadir lámina')
+      setStickerErrors(fields)
+      setModalError(form)
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
+  const handleRenameCollection = async (e: FormEvent) => {
+    e.preventDefault()
+    setRenameFormError(null)
+    setRenameErrors({})
+
+    const result = updateCollectionSchema.safeParse({ name: renameName })
+    if (!result.success) {
+      setRenameErrors(zodFieldErrors(result.error))
+      return
+    }
+
+    setSubmitting(true)
+    try {
+      const updated = await api<CollectionSummary>(`/collections/${id}`, {
+        method: 'PUT',
+        body: JSON.stringify(result.data),
+      })
+      setCollection((prev) => (prev ? { ...prev, name: updated.name } : null))
+      setShowRenameModal(false)
+    } catch (err: unknown) {
+      const { fields, form } = serverErrors(err, 'Error al renombrar la colección')
+      setRenameErrors(fields)
+      setRenameFormError(form)
     } finally {
       setSubmitting(false)
     }
@@ -140,7 +187,7 @@ export default function CollectionDetail() {
   const handleTogglePublic = async () => {
     if (!collection) return
     try {
-      const updated = await api<Collection>(`/collections/${id}`, {
+      const updated = await api<CollectionSummary>(`/collections/${id}`, {
         method: 'PUT',
         body: JSON.stringify({ isPublic: !collection.isPublic }),
       })
@@ -165,7 +212,9 @@ export default function CollectionDetail() {
     return (
       <div className="py-24 text-center">
         <div className="inline-block h-8 w-8 animate-spin rounded-full border-4 border-amber-400 border-t-transparent" />
-        <p className="mt-3 text-xs font-bold tracking-widest text-slate-400">CARGANDO COLECCIÓN...</p>
+        <p className="mt-3 text-xs font-bold tracking-widest text-slate-400">
+          CARGANDO COLECCIÓN...
+        </p>
       </div>
     )
   }
@@ -174,7 +223,10 @@ export default function CollectionDetail() {
     return (
       <div className="py-20 text-center">
         <p className="font-display text-xl font-black text-red-400">{error}</p>
-        <Link to="/collections" className="mt-4 inline-block text-xs font-bold text-amber-400 hover:underline">
+        <Link
+          to="/collections"
+          className="mt-4 inline-block text-xs font-bold text-amber-400 hover:underline"
+        >
           ← Volver a colecciones
         </Link>
       </div>
@@ -183,7 +235,7 @@ export default function CollectionDetail() {
 
   if (!collection) return null
 
-  const progress = collection.progress || { collectedCount: 0, totalStickers: 0, percentage: 0 }
+  const { progress } = collection
   const isFinished = progress.percentage === 100
 
   return (
@@ -214,7 +266,7 @@ export default function CollectionDetail() {
                 {collection.isPublic ? 'Colección Pública' : 'Colección Privada'}
               </span>
               <span className="text-xs text-slate-400">
-                Coleccionista: <b className="text-white">{collection.user?.username}</b>
+                Coleccionista: <b className="text-white">{collection.user.username}</b>
               </span>
             </div>
 
@@ -227,7 +279,7 @@ export default function CollectionDetail() {
                 to={`/albums/${collection.albumId}`}
                 className="font-bold text-amber-400 transition hover:underline"
               >
-                {collection.album?.name}
+                {collection.album.name}
               </Link>
             </p>
           </div>
@@ -245,6 +297,17 @@ export default function CollectionDetail() {
               >
                 <span>+</span>
                 <span>Pegar Lámina</span>
+              </button>
+              <button
+                onClick={() => {
+                  setRenameName(collection.name)
+                  setRenameErrors({})
+                  setRenameFormError(null)
+                  setShowRenameModal(true)
+                }}
+                className="rounded-xl border border-binder-700 bg-binder-800/80 px-4 py-2 text-xs font-bold text-slate-300 hover:bg-binder-700"
+              >
+                Renombrar
               </button>
               <button
                 onClick={handleTogglePublic}
@@ -268,7 +331,8 @@ export default function CollectionDetail() {
         {confirmDeleteCollection && (
           <div className="mt-6 rounded-2xl border border-red-500/50 bg-red-950/70 p-5 shadow-2xl">
             <p className="text-sm font-bold text-red-200">
-              ⚠️ ¿Seguro que deseas eliminar la colección "{collection.name}"? Se perderá el registro de láminas pegadas.
+              ⚠️ ¿Seguro que deseas eliminar la colección "{collection.name}"? Se perderá el
+              registro de láminas pegadas.
             </p>
             <div className="mt-3 flex space-x-3">
               <button
@@ -327,7 +391,7 @@ export default function CollectionDetail() {
               : 'border-transparent text-slate-400 hover:text-white'
           }`}
         >
-          Láminas Pegadas ({collection.stickers?.length || 0})
+          Láminas Pegadas ({collection.stickers.length})
         </button>
         <button
           onClick={() => setActiveTab('missing')}
@@ -354,10 +418,12 @@ export default function CollectionDetail() {
       {/* Tab 1: Láminas Pegadas (3:4 Ratio, Proporcionadas y con Acabado de Álbum) */}
       {activeTab === 'collected' && (
         <div>
-          {!collection.stickers || collection.stickers.length === 0 ? (
+          {collection.stickers.length === 0 ? (
             <div className="rounded-3xl border border-dashed border-binder-700/80 bg-binder-900/40 py-20 text-center">
               <span className="text-4xl">📖</span>
-              <h3 className="mt-3 font-display text-xl font-black text-white">Tu álbum está vacío</h3>
+              <h3 className="mt-3 font-display text-xl font-black text-white">
+                Tu álbum está vacío
+              </h3>
               <p className="mt-1 text-xs text-slate-400">
                 Aún no has pegado láminas en esta colección.
                 {isOwner && ' ¡Haz clic en "+ Pegar Lámina" para empezar a llenarlo!'}
@@ -413,7 +479,10 @@ export default function CollectionDetail() {
                     <span className="font-mono text-xs font-black text-amber-400">
                       #{item.sticker.number < 10 ? `0${item.sticker.number}` : item.sticker.number}
                     </span>
-                    <p className="truncate px-2 text-center text-xs font-black text-white" title={item.sticker.name}>
+                    <p
+                      className="truncate px-2 text-center text-xs font-black text-white"
+                      title={item.sticker.name}
+                    >
                       {item.sticker.name}
                     </p>
                     <span className="font-mono text-[10px] text-slate-500">x{item.quantity}</span>
@@ -444,7 +513,9 @@ export default function CollectionDetail() {
                         <div className="flex items-center justify-between">
                           <div className="flex items-center space-x-1">
                             <button
-                              onClick={() => handleUpdateQuantity(item.stickerId, item.quantity, -1)}
+                              onClick={() =>
+                                handleUpdateQuantity(item.stickerId, item.quantity, -1)
+                              }
                               className="flex h-6 w-6 items-center justify-center rounded-lg bg-binder-800 text-xs font-black text-slate-300 transition hover:bg-binder-700"
                               title="Restar una copia"
                             >
@@ -511,9 +582,7 @@ export default function CollectionDetail() {
                       {st.name}
                     </p>
                     {st.type && (
-                      <span className="mt-1 text-[10px] font-bold text-slate-500">
-                        {st.type}
-                      </span>
+                      <span className="mt-1 text-[10px] font-bold text-slate-500">{st.type}</span>
                     )}
                   </div>
 
@@ -537,7 +606,8 @@ export default function CollectionDetail() {
                 No tienes láminas repetidas para intercambio
               </p>
               <p className="mt-1 text-xs text-slate-500">
-                Cuando pegues más de 1 copia de un cromo, aparecerán aquí para negociar con otros coleccionistas.
+                Cuando pegues más de 1 copia de un cromo, aparecerán aquí para negociar con otros
+                coleccionistas.
               </p>
             </div>
           ) : (
@@ -549,7 +619,11 @@ export default function CollectionDetail() {
                 >
                   <div className="relative aspect-[3/4] w-full overflow-hidden rounded-xl bg-binder-950">
                     {dup.imageUrl ? (
-                      <img src={dup.imageUrl} alt={dup.name} className="h-full w-full object-contain" />
+                      <img
+                        src={dup.imageUrl}
+                        alt={dup.name}
+                        className="h-full w-full object-contain"
+                      />
                     ) : (
                       <div className="flex h-full items-center justify-center">
                         <span className="font-mono text-5xl font-black text-amber-500/30">
@@ -640,7 +714,9 @@ export default function CollectionDetail() {
           <div className="w-full max-w-md rounded-3xl border border-binder-700 bg-binder-900 p-6 shadow-2xl sm:p-8">
             <div className="flex items-center justify-between border-b border-binder-800 pb-3">
               <div>
-                <h3 className="font-display text-xl font-black text-white">Pegar Lámina en tu Álbum</h3>
+                <h3 className="font-display text-xl font-black text-white">
+                  Pegar Lámina en tu Álbum
+                </h3>
                 <p className="text-xs text-slate-400">Selecciona el cromo del catálogo oficial</p>
               </div>
               <button
@@ -666,7 +742,8 @@ export default function CollectionDetail() {
                   value={selectedStickerId}
                   onChange={(e) => {
                     setSelectedStickerId(Number(e.target.value))
-                    if (stickerErrors.stickerId) setStickerErrors((prev) => ({ ...prev, stickerId: '' }))
+                    if (stickerErrors.stickerId)
+                      setStickerErrors((prev) => ({ ...prev, stickerId: '' }))
                   }}
                   className={`mt-1.5 w-full rounded-xl border bg-binder-950 px-3.5 py-2.5 text-sm text-white focus:outline-none ${
                     stickerErrors.stickerId
@@ -681,7 +758,9 @@ export default function CollectionDetail() {
                   ))}
                 </select>
                 {stickerErrors.stickerId && (
-                  <p className="mt-1.5 text-xs font-semibold text-red-400">{stickerErrors.stickerId}</p>
+                  <p className="mt-1.5 text-xs font-semibold text-red-400">
+                    {stickerErrors.stickerId}
+                  </p>
                 )}
               </div>
 
@@ -695,7 +774,8 @@ export default function CollectionDetail() {
                   value={quantity}
                   onChange={(e) => {
                     setQuantity(e.target.value === '' ? '' : Number(e.target.value))
-                    if (stickerErrors.quantity) setStickerErrors((prev) => ({ ...prev, quantity: '' }))
+                    if (stickerErrors.quantity)
+                      setStickerErrors((prev) => ({ ...prev, quantity: '' }))
                   }}
                   className={`mt-1.5 w-full rounded-xl border bg-binder-950 px-3.5 py-2.5 text-sm font-mono text-white focus:outline-none ${
                     stickerErrors.quantity
@@ -724,6 +804,76 @@ export default function CollectionDetail() {
                   className="rounded-xl bg-gradient-to-r from-amber-400 via-amber-500 to-amber-600 px-6 py-2 text-xs font-black uppercase tracking-wider text-slate-950 hover:brightness-110 disabled:opacity-50"
                 >
                   {submitting ? 'Pegando...' : 'Pegar en el Álbum'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Modal Renombrar Colección */}
+      {showRenameModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4 backdrop-blur-md">
+          <div className="w-full max-w-md rounded-3xl border border-binder-700 bg-binder-900 p-6 shadow-2xl sm:p-8">
+            <div className="flex items-center justify-between border-b border-binder-800 pb-3">
+              <div>
+                <h3 className="font-display text-xl font-black text-white">Renombrar Colección</h3>
+                <p className="text-xs text-slate-400">
+                  El nombre que verá el resto de la comunidad
+                </p>
+              </div>
+              <button
+                onClick={() => setShowRenameModal(false)}
+                className="text-slate-400 hover:text-white"
+              >
+                ✕
+              </button>
+            </div>
+
+            {renameFormError && (
+              <div className="mt-4 rounded-xl border border-red-500/30 bg-red-950/40 p-3 text-xs font-semibold text-red-300">
+                {renameFormError}
+              </div>
+            )}
+
+            <form noValidate onSubmit={handleRenameCollection} className="mt-5 space-y-4">
+              <div>
+                <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-300">
+                  Nombre de la Colección
+                </label>
+                <input
+                  type="text"
+                  value={renameName}
+                  onChange={(e) => {
+                    setRenameName(e.target.value)
+                    if (renameErrors.name) setRenameErrors((prev) => ({ ...prev, name: '' }))
+                  }}
+                  className={`mt-1.5 w-full rounded-xl border bg-binder-950 px-3.5 py-2.5 text-sm text-white placeholder-slate-500 focus:outline-none ${
+                    renameErrors.name
+                      ? 'border-red-500 focus:border-red-500'
+                      : 'border-binder-700 focus:border-amber-400'
+                  }`}
+                  placeholder="Ej. Mi Álbum del Mundial"
+                />
+                {renameErrors.name && (
+                  <p className="mt-1.5 text-xs font-semibold text-red-400">{renameErrors.name}</p>
+                )}
+              </div>
+
+              <div className="mt-6 flex justify-end space-x-3 border-t border-binder-800 pt-4">
+                <button
+                  type="button"
+                  onClick={() => setShowRenameModal(false)}
+                  className="rounded-xl border border-binder-700 px-4 py-2 text-xs font-bold text-slate-300 hover:bg-binder-800"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  disabled={submitting}
+                  className="rounded-xl bg-gradient-to-r from-amber-400 via-amber-500 to-amber-600 px-6 py-2 text-xs font-black uppercase tracking-wider text-slate-950 hover:brightness-110 disabled:opacity-50"
+                >
+                  {submitting ? 'Guardando...' : 'Guardar Nombre'}
                 </button>
               </div>
             </form>

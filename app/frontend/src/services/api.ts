@@ -1,29 +1,61 @@
-export interface ZodErrorDetails {
-  formErrors?: string[]
+export interface ApiIssue {
+  path: string
+  message: string
+}
+
+/** Detalle de error devuelto por el backend: `{ error, message, details }`. */
+export interface ApiErrorDetails {
+  source?: 'body' | 'query' | 'params'
   fieldErrors?: Record<string, string[]>
+  issues?: ApiIssue[]
+  [key: string]: unknown
+}
+
+interface ApiErrorBody {
+  error?: string
+  message?: string
+  details?: ApiErrorDetails
 }
 
 export class ApiError extends Error {
   constructor(
     public readonly status: number,
     message: string,
-    public readonly details?: ZodErrorDetails,
+    public readonly code: string,
+    public readonly details?: ApiErrorDetails,
   ) {
     super(message)
     this.name = 'ApiError'
   }
 }
 
+export function isApiError(err: unknown): err is ApiError {
+  return err instanceof ApiError
+}
+
+export function getIssues(err: unknown): ApiIssue[] {
+  if (!isApiError(err)) return []
+  return err.details?.issues ?? []
+}
+
+/**
+ * Errores por campo listos para pintar bajo cada input. Si el backend solo
+ * devuelve un error de formulario (ruta vacía) se expone en la clave `_form`.
+ */
 export function getFieldErrors(err: unknown): Record<string, string> {
-  if (err instanceof ApiError && err.details?.fieldErrors) {
+  if (!isApiError(err)) return {}
+
+  const fieldErrors = err.details?.fieldErrors
+  if (fieldErrors) {
     const result: Record<string, string> = {}
-    for (const [field, messages] of Object.entries(err.details.fieldErrors)) {
-      if (messages && messages.length > 0) {
-        result[field] = messages[0]
-      }
+    for (const [field, messages] of Object.entries(fieldErrors)) {
+      if (messages && messages.length > 0) result[field] = messages[0]
     }
-    return result
+    if (Object.keys(result).length > 0) return result
   }
+
+  const firstIssue = getIssues(err)[0]
+  if (firstIssue) return { [firstIssue.path || '_form']: firstIssue.message }
   return {}
 }
 
@@ -42,10 +74,11 @@ export async function api<T>(path: string, init?: RequestInit): Promise<T> {
   })
 
   if (!res.ok) {
-    const body = await res.json().catch(() => null)
+    const body = (await res.json().catch(() => null)) as ApiErrorBody | null
     throw new ApiError(
       res.status,
       body?.message ?? `Error ${res.status}`,
+      body?.error ?? 'http_error',
       body?.details,
     )
   }

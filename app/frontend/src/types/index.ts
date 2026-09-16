@@ -4,6 +4,14 @@ export interface User {
   email: string
 }
 
+/** Resumen del álbum incluido en los listados de colecciones. */
+export interface AlbumSummary {
+  id: number
+  name: string
+  totalStickers: number
+  imageUrl: string | null
+}
+
 export interface Album {
   id: number
   name: string
@@ -12,8 +20,9 @@ export interface Album {
   releaseDate: string | null
   stickerType: string | null
   totalStickers: number
-  userId?: number | null
+  userId: number | null
   createdAt: string
+  stickers?: Sticker[]
 }
 
 export interface Sticker {
@@ -49,16 +58,34 @@ export interface CollectedStickerItem {
   sticker: Sticker
 }
 
-export interface Collection {
+export interface PublicUserSummary {
+  id: number
+  username: string
+}
+
+/** Item de `GET /collections`: incluye progreso calculado por el servidor. */
+export interface CollectionSummary {
   id: number
   name: string
   isPublic: boolean
   userId: number
   albumId: number
   createdAt: string
-  album?: Album
-  user?: { id: number; username: string }
-  stickers?: CollectedStickerItem[]
-  progress?: CollectionProgress
-  _count?: { stickers: number }
+  album: AlbumSummary
+  user: PublicUserSummary
+  progress: CollectionProgress
+}
+
+/** Respuesta de `GET /collections/:id`. */
+export interface CollectionDetail {
+  id: number
+  name: string
+  isPublic: boolean
+  userId: number
+  albumId: number
+  createdAt: string
+  album: Album
+  user: PublicUserSummary
+  stickers: CollectedStickerItem[]
+  progress: CollectionProgress
 }

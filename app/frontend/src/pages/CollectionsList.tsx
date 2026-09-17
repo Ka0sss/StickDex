@@ -21,6 +21,8 @@ function serverErrors(
 export default function CollectionsList() {
   const [collections, setCollections] = useState<CollectionSummary[]>([])
   const [albums, setAlbums] = useState<Album[]>([])
+  const [albumsLoading, setAlbumsLoading] = useState(false)
+  const [albumsError, setAlbumsError] = useState<string | null>(null)
   const [activeTab, setActiveTab] = useState<'all' | 'mine'>('all')
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -53,12 +55,19 @@ export default function CollectionsList() {
   }
 
   const loadAlbums = async () => {
+    setAlbumsLoading(true)
+    setAlbumsError(null)
+    setAlbums([])
+    setSelectedAlbumId('')
+
     try {
       const data = await api<Album[]>('/albums')
       setAlbums(data)
       if (data.length > 0) setSelectedAlbumId(data[0].id)
     } catch {
-      // Ignore
+      setAlbumsError('No se pudieron cargar los álbumes.')
+    } finally {
+      setAlbumsLoading(false)
     }
   }
 
@@ -307,7 +316,20 @@ export default function CollectionsList() {
                 <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-300">
                   Seleccionar Álbum Catálogo
                 </label>
-                {albums.length === 0 ? (
+                {albumsLoading ? (
+                  <p className="mt-1.5 text-xs font-medium text-slate-400">Cargando álbumes...</p>
+                ) : albumsError ? (
+                  <div className="mt-1.5 space-y-2">
+                    <p className="text-xs font-medium text-red-400">{albumsError}</p>
+                    <button
+                      type="button"
+                      onClick={loadAlbums}
+                      className="text-xs font-bold text-amber-400 hover:underline"
+                    >
+                      Reintentar
+                    </button>
+                  </div>
+                ) : albums.length === 0 ? (
                   <p className="mt-1.5 text-xs font-medium text-red-400">
                     No hay álbumes creados en el sistema. Primero crea un álbum.
                   </p>
@@ -359,7 +381,9 @@ export default function CollectionsList() {
                 </button>
                 <button
                   type="submit"
-                  disabled={submitting || albums.length === 0}
+                  disabled={
+                    submitting || albumsLoading || albumsError !== null || albums.length === 0
+                  }
                   className="rounded-xl bg-gradient-to-r from-amber-400 via-amber-500 to-amber-600 px-6 py-2 text-xs font-black uppercase tracking-wider text-slate-950 hover:brightness-110 disabled:opacity-50"
                 >
                   {submitting ? 'Iniciando...' : 'Iniciar Colección'}

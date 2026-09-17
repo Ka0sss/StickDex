@@ -113,8 +113,8 @@ StickDex/
 
 ## Requisitos Previos
 
-- **Node.js** (v20 o superior) y **npm**
-- **Docker** y **Docker Compose**
+- **Opción A (Docker Compose):** solo **Docker** con Docker Compose.
+- **Opción B (modo desarrollo):** además **Node.js** (v20 o superior) y **npm**.
 
 ---
 
@@ -122,18 +122,26 @@ StickDex/
 
 ### Opción A — Todo el stack con Docker Compose (recomendado)
 
-Un solo comando construye y levanta **base de datos + backend + frontend**, con *health checks* para
-arrancar en orden y comprobar que cada servicio está listo:
+Desde una copia recién descargada del repositorio, cuatro pasos:
 
 ```bash
-cd app
-docker compose up -d --build
+git clone https://github.com/Ka0sss/StickDex.git StickDex
+cd StickDex/app
+docker compose up -d --build                               # construye y levanta db + backend + frontend
+docker compose exec backend npm run prisma:seed            # datos de demostración (una sola vez)
+```
 
-# Estado y salud de cada servicio
-docker compose ps
+Cuando `docker compose ps` muestre los tres servicios como `(healthy)`, la aplicación está lista en
+**http://localhost:5173** (credenciales de prueba: `cole1@test.com` / `password123`).
 
-# Registros (sigue el arranque: migraciones y servidor)
-docker compose logs -f backend
+Estado y salud de cada servicio:
+
+```bash
+docker compose ps                # los tres deben aparecer como (healthy)
+docker compose logs -f backend   # sigue el arranque: migraciones y servidor
+
+curl http://localhost:3000/health   # {"status":"ok","database":"up"}  (backend + MySQL)
+curl http://localhost:5173/healthz  # ok                              (Nginx)
 ```
 
 | Servicio | Contenedor | URL | Health check |
@@ -142,14 +150,8 @@ docker compose logs -f backend
 | `backend` | Node 22 + Express compilado | `http://localhost:3000` | `GET /health` (comprueba MySQL) |
 | `frontend` | Nginx sirviendo el bundle de Vite | `http://localhost:5173` | `GET /healthz` |
 
-Cuando los tres aparecen como `(healthy)` la aplicación está lista en `http://localhost:5173`.
-El backend aplica las migraciones pendientes al arrancar (`prisma migrate deploy`).
-
-Datos de demostración (una sola vez, con el stack arriba):
-
-```bash
-docker compose exec backend npm run prisma:seed
-```
+El arranque está ordenado por dependencias: el backend espera a que MySQL esté sano y aplica las
+migraciones pendientes (`prisma migrate deploy`) antes de escuchar, y el frontend espera al backend.
 
 Comandos útiles:
 
@@ -163,6 +165,11 @@ docker compose down -v            # detener y borrar el volumen de MySQL
 El stack se configura por variables de entorno con valores por defecto, así que funciona sin crear
 ningún archivo. Si quieres cambiarlos, crea `app/.env` (por ejemplo `SESSION_SECRET`, `MYSQL_*`,
 `NODE_ENV`). Con `NODE_ENV=production` la cookie de sesión se marca `secure` y requiere HTTPS.
+
+> **Varias copias del proyecto a la vez:** Compose nombra el proyecto según la carpeta (`app`), así que
+> dos copias del repositorio compartirían contenedores, volumen de MySQL y puertos. Para trabajar con
+> una copia aislada, dale un nombre propio y libérala de los mismos puertos:
+> `docker compose -p mi-copia up -d --build` (y detén la otra con `docker compose down`).
 
 ### Opción B — Modo desarrollo con dos terminales
 
@@ -197,10 +204,14 @@ npm run dev               # http://localhost:5173 (proxy hacia /api y /uploads)
 
 ## Datos de Prueba (Seed)
 
-Para probar la aplicación inmediatamente sin tener que registrarse o crear datos manualmente, ejecuta:
+Para probar la aplicación inmediatamente sin tener que registrarse o crear datos manualmente:
 
 ```bash
-cd app/backend
+# Con el stack de Docker Compose levantado
+cd app
+docker compose exec backend npm run prisma:seed
+
+# En modo desarrollo (backend corriendo desde app/backend)
 npm run prisma:seed
 ```
 

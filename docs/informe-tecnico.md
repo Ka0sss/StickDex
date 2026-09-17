@@ -1968,14 +1968,22 @@ desarrollo, **Node.js 20+** con **npm**.
 
 ### 7.1 Stack completo con Docker Compose (recomendado)
 
-Un solo comando construye las imágenes y levanta los tres servicios en orden, esperando a que cada
-uno esté sano antes de arrancar el siguiente:
+Desde una copia recién descargada del repositorio, cuatro pasos:
 
 ```bash
-cd app
-docker compose up -d --build
+git clone https://github.com/Ka0sss/StickDex.git StickDex
+cd StickDex/app
+docker compose up -d --build                               # construye y levanta db + backend + frontend
+docker compose exec backend npm run prisma:seed            # datos de demostración (una sola vez)
+```
+
+Comprobación del arranque:
+
+```bash
 docker compose ps                # los tres servicios deben aparecer como (healthy)
 docker compose logs -f backend   # migraciones y arranque del servidor
+curl http://localhost:3000/health   # {"status":"ok","database":"up"}
+curl http://localhost:5173/healthz  # ok
 ```
 
 | Servicio | Imagen / build | URL | Health check |
@@ -2005,6 +2013,12 @@ existe; la carpeta `app/backend/uploads` se comparte con el contenedor, así que
 y las subidas se ven igual desde Docker y desde el modo desarrollo; y el volumen `db_data` conserva la
 base entre arranques (el seed solo hace falta ejecutarlo una vez).
 
+> **Varias copias del proyecto a la vez:** Compose nombra el proyecto según la carpeta (`app`), de modo
+> que dos copias del repositorio compartirían contenedores, volumen de MySQL y puertos. Para aislar una
+> copia: `docker compose -p mi-copia up -d --build` (y `docker compose down` en la otra). Se comprobó
+> al clonar el repositorio en una carpeta nueva: sin `-p` el clon reutilizaba los contenedores y la
+> base de la copia original.
+
 ### 7.2 Modo desarrollo con dos terminales (recarga en caliente)
 
 ```bash
@@ -2015,7 +2029,7 @@ docker compose up -d db              # solo MySQL, puerto 3306
 # 2. Backend
 cd backend
 cp .env.example .env                 # DATABASE_URL, SESSION_SECRET (32+), PORT, NODE_ENV
-npm install
+npm install                          # instala y genera el cliente de Prisma (postinstall)
 npx prisma migrate dev               # aplica las migraciones
 npm run prisma:seed                  # datos de demostración
 npm run dev                          # http://127.0.0.1:3000

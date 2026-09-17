@@ -148,6 +148,7 @@ export default function AlbumsList() {
           <div className="mt-8 flex flex-wrap items-center gap-3">
             {user ? (
               <button
+                type="button"
                 onClick={() => openModal(null)}
                 className="inline-flex items-center space-x-2 rounded-xl bg-gradient-to-r from-amber-400 via-amber-500 to-amber-600 px-6 py-3 text-xs font-black uppercase tracking-wider text-slate-950 shadow-lg shadow-amber-500/25 transition hover:brightness-110"
               >
@@ -231,6 +232,7 @@ export default function AlbumsList() {
               >
                 {user && album.userId === user.id && (
                   <button
+                    type="button"
                     onClick={() => openModal(album)}
                     className="absolute right-3 top-3 z-10 rounded-lg border border-amber-400/30 bg-black/70 px-2.5 py-1 text-[10px] font-black uppercase tracking-wider text-amber-300 backdrop-blur-md transition hover:bg-black/90 hover:text-amber-200"
                     title="Editar este álbum"
@@ -316,6 +318,7 @@ export default function AlbumsList() {
                 </p>
               </div>
               <button
+                type="button"
                 onClick={() => setShowModal(false)}
                 className="flex h-8 w-8 items-center justify-center rounded-full bg-binder-800 text-slate-400 hover:text-white"
               >

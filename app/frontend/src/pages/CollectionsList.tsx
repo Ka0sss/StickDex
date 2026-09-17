@@ -129,6 +129,7 @@ export default function CollectionsList() {
 
         {user && (
           <button
+            type="button"
             onClick={() => {
               setModalError(null)
               setFieldErrors({})
@@ -145,6 +146,7 @@ export default function CollectionsList() {
       {/* Tabs */}
       <div className="flex border-b border-binder-800">
         <button
+          type="button"
           onClick={() => setActiveTab('all')}
           className={`border-b-2 px-6 py-3 text-xs font-black uppercase tracking-wider transition ${
             activeTab === 'all'
@@ -156,6 +158,7 @@ export default function CollectionsList() {
         </button>
         {user && (
           <button
+            type="button"
             onClick={() => setActiveTab('mine')}
             className={`border-b-2 px-6 py-3 text-xs font-black uppercase tracking-wider transition ${
               activeTab === 'mine'
@@ -262,6 +265,7 @@ export default function CollectionsList() {
             <div className="flex items-center justify-between border-b border-binder-800 pb-3">
               <h3 className="font-display text-xl font-black text-white">Iniciar Colección</h3>
               <button
+                type="button"
                 onClick={() => setShowModal(false)}
                 className="text-slate-400 hover:text-white"
               >

@@ -307,6 +307,7 @@ export default function CollectionDetail() {
           {isOwner && (
             <div className="flex flex-wrap items-center gap-3">
               <button
+                type="button"
                 onClick={() => {
                   setModalError(null)
                   setStickerErrors({})
@@ -318,6 +319,7 @@ export default function CollectionDetail() {
                 <span>Pegar Lámina</span>
               </button>
               <button
+                type="button"
                 onClick={() => {
                   setRenameName(collection.name)
                   setRenameErrors({})
@@ -329,6 +331,7 @@ export default function CollectionDetail() {
                 Renombrar
               </button>
               <button
+                type="button"
                 onClick={handleTogglePublic}
                 className="rounded-xl border border-binder-700 bg-binder-800/80 px-4 py-2 text-xs font-bold text-slate-300 hover:bg-binder-700"
               >
@@ -336,6 +339,7 @@ export default function CollectionDetail() {
               </button>
               {!confirmDeleteCollection && (
                 <button
+                  type="button"
                   onClick={() => setConfirmDeleteCollection(true)}
                   className="rounded-xl px-3 py-2 text-xs font-bold text-red-400 hover:bg-red-950/40"
                 >
@@ -355,12 +359,14 @@ export default function CollectionDetail() {
             </p>
             <div className="mt-3 flex space-x-3">
               <button
+                type="button"
                 onClick={handleDeleteCollection}
                 className="rounded-xl bg-red-600 px-4 py-2 text-xs font-black uppercase tracking-wider text-white hover:bg-red-500"
               >
                 Sí, eliminar colección
               </button>
               <button
+                type="button"
                 onClick={() => setConfirmDeleteCollection(false)}
                 className="rounded-xl border border-binder-700 bg-binder-900 px-4 py-2 text-xs font-bold text-slate-300 hover:bg-binder-800"
               >
@@ -402,6 +408,7 @@ export default function CollectionDetail() {
       {/* Tabs */}
       <div className="flex border-b border-binder-800">
         <button
+          type="button"
           onClick={() => setActiveTab('collected')}
           className={`border-b-2 px-6 py-3 text-xs font-black uppercase tracking-wider transition ${
             activeTab === 'collected'
@@ -412,6 +419,7 @@ export default function CollectionDetail() {
           Láminas Pegadas ({collection.stickers.length})
         </button>
         <button
+          type="button"
           onClick={() => setActiveTab('missing')}
           className={`border-b-2 px-6 py-3 text-xs font-black uppercase tracking-wider transition ${
             activeTab === 'missing'
@@ -422,6 +430,7 @@ export default function CollectionDetail() {
           Faltantes ({missingStickers.length})
         </button>
         <button
+          type="button"
           onClick={() => setActiveTab('duplicates')}
           className={`border-b-2 px-6 py-3 text-xs font-black uppercase tracking-wider transition ${
             activeTab === 'duplicates'
@@ -513,12 +522,14 @@ export default function CollectionDetail() {
                           <p className="text-[10px] font-bold text-rose-400">¿Despegar lámina?</p>
                           <div className="mt-1 flex justify-center space-x-1.5">
                             <button
+                              type="button"
                               onClick={() => handleRemoveSticker(item.stickerId)}
                               className="rounded bg-rose-600 px-2 py-0.5 text-[10px] font-bold text-white hover:bg-rose-500"
                             >
                               Sí
                             </button>
                             <button
+                              type="button"
                               onClick={() => setRemovingStickerId(null)}
                               className="rounded bg-binder-800 px-2 py-0.5 text-[10px] font-semibold text-slate-400 hover:bg-binder-700"
                             >
@@ -530,6 +541,7 @@ export default function CollectionDetail() {
                         <div className="flex items-center justify-between">
                           <div className="flex items-center space-x-1">
                             <button
+                              type="button"
                               onClick={() =>
                                 handleUpdateQuantity(item.stickerId, item.quantity, -1)
                               }
@@ -542,6 +554,7 @@ export default function CollectionDetail() {
                               {item.quantity}
                             </span>
                             <button
+                              type="button"
                               onClick={() => handleUpdateQuantity(item.stickerId, item.quantity, 1)}
                               className="flex h-6 w-6 items-center justify-center rounded-lg bg-binder-800 text-xs font-black text-amber-400 transition hover:bg-binder-700"
                               title="Sumar una copia (repetida)"
@@ -551,6 +564,7 @@ export default function CollectionDetail() {
                           </div>
 
                           <button
+                            type="button"
                             onClick={() => setRemovingStickerId(item.stickerId)}
                             className="text-[10px] font-bold text-slate-500 hover:text-rose-400 hover:underline"
                           >
@@ -680,6 +694,7 @@ export default function CollectionDetail() {
             className="relative flex w-full max-w-md flex-col items-center rounded-3xl border-2 border-amber-400/50 bg-binder-900 p-7 shadow-foil"
           >
             <button
+              type="button"
               onClick={() => setInspectedSticker(null)}
               className="absolute right-4 top-4 flex h-8 w-8 items-center justify-center rounded-full bg-binder-800 text-slate-400 hover:text-white"
             >
@@ -735,6 +750,7 @@ export default function CollectionDetail() {
                 <p className="text-xs text-slate-400">Selecciona el cromo del catálogo oficial</p>
               </div>
               <button
+                type="button"
                 onClick={() => setShowAddModal(false)}
                 className="text-slate-400 hover:text-white"
               >
@@ -838,6 +854,7 @@ export default function CollectionDetail() {
                 </p>
               </div>
               <button
+                type="button"
                 onClick={() => setShowRenameModal(false)}
                 className="text-slate-400 hover:text-white"
               >

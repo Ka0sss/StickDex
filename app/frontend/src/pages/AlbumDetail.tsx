@@ -306,6 +306,7 @@ export default function AlbumDetail() {
 
                 {isOwner && !confirmDeleteAlbum && (
                   <button
+                    type="button"
                     onClick={() => setConfirmDeleteAlbum(true)}
                     className="rounded-xl border border-red-900/60 bg-red-950/40 px-3.5 py-1.5 text-xs font-bold text-red-400 transition hover:bg-red-900/60 hover:text-white"
                   >
@@ -367,12 +368,14 @@ export default function AlbumDetail() {
           </p>
           <div className="mt-3 flex space-x-3">
             <button
+              type="button"
               onClick={handleDeleteAlbum}
               className="rounded-xl bg-red-600 px-4 py-2 text-xs font-black uppercase tracking-wider text-white hover:bg-red-500"
             >
               Sí, eliminar definitivamente
             </button>
             <button
+              type="button"
               onClick={() => setConfirmDeleteAlbum(false)}
               className="rounded-xl border border-binder-700 bg-binder-900 px-4 py-2 text-xs font-bold text-slate-300 hover:bg-binder-800"
             >
@@ -392,6 +395,7 @@ export default function AlbumDetail() {
       {isOwner && (
         <div className="flex flex-wrap items-center gap-3">
           <button
+            type="button"
             onClick={() => openStickerModal(null)}
             className="inline-flex items-center space-x-2 rounded-xl bg-gradient-to-r from-amber-400 via-amber-500 to-amber-600 px-5 py-2.5 text-xs font-black uppercase tracking-wider text-slate-950 shadow-lg shadow-amber-500/20 hover:brightness-110"
           >
@@ -399,6 +403,7 @@ export default function AlbumDetail() {
             <span>Añadir Lámina</span>
           </button>
           <button
+            type="button"
             onClick={() => {
               setBulkIssues([])
               setShowBulkModal(true)
@@ -509,12 +514,14 @@ export default function AlbumDetail() {
                       <div className="flex items-center justify-center space-x-1.5">
                         <span className="text-[10px] font-bold text-red-400">¿Borrar?</span>
                         <button
+                          type="button"
                           onClick={() => handleDeleteSticker(st.id)}
                           className="rounded bg-red-600 px-2 py-0.5 text-[10px] font-bold text-white hover:bg-red-500"
                         >
                           Sí
                         </button>
                         <button
+                          type="button"
                           onClick={() => setDeletingStickerId(null)}
                           className="rounded bg-binder-800 px-2 py-0.5 text-[10px] font-semibold text-slate-400 hover:bg-binder-700"
                         >
@@ -524,12 +531,14 @@ export default function AlbumDetail() {
                     ) : (
                       <div className="flex items-center justify-center space-x-3">
                         <button
+                          type="button"
                           onClick={() => openStickerModal(st)}
                           className="text-[10px] font-bold text-slate-500 transition hover:text-amber-400 hover:underline"
                         >
                           Editar
                         </button>
                         <button
+                          type="button"
                           onClick={() => setDeletingStickerId(st.id)}
                           className="text-[10px] font-bold text-slate-500 transition hover:text-red-400 hover:underline"
                         >
@@ -556,6 +565,7 @@ export default function AlbumDetail() {
             className="relative flex w-full max-w-md flex-col items-center rounded-3xl border-2 border-amber-400/50 bg-binder-900 p-7 shadow-foil"
           >
             <button
+              type="button"
               onClick={() => setInspectedSticker(null)}
               className="absolute right-4 top-4 flex h-8 w-8 items-center justify-center rounded-full bg-binder-800 text-slate-400 hover:text-white"
             >
@@ -616,6 +626,7 @@ export default function AlbumDetail() {
                 </p>
               </div>
               <button
+                type="button"
                 onClick={() => setShowAddModal(false)}
                 className="text-slate-400 hover:text-white"
               >
@@ -745,6 +756,7 @@ export default function AlbumDetail() {
                 Carga Masiva de Láminas
               </h3>
               <button
+                type="button"
                 onClick={() => setShowBulkModal(false)}
                 className="text-slate-400 hover:text-white"
               >

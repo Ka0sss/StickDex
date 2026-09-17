@@ -74,6 +74,7 @@ export function Navbar() {
                 <span className="font-bold text-slate-200">{user.username}</span>
               </div>
               <button
+                type="button"
                 onClick={handleLogout}
                 className="rounded-xl border border-binder-700 bg-binder-800/60 px-3 py-1.5 text-xs font-bold text-slate-300 transition hover:bg-red-950/40 hover:border-red-700/60 hover:text-red-300"
               >

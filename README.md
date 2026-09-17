@@ -341,6 +341,8 @@ Las acciones de escritura (crear/editar/eliminar) solo se muestran al dueño del
 
 ### Verificación ejecutada sobre este repositorio
 
-- Backend: `npm run typecheck`, `npm run lint`, `npm run format:check` y `npm test` (120 pruebas, sin base de datos).
-- Frontend: `npm run typecheck`, `npm run lint` y `npm run format:check`.
-- Pruebas de humo ejecutadas manualmente sobre la aplicación real (no se versiona el script): 48 comprobaciones contra la API (login, autorización por propiedad, visibilidad, reportes, conflictos 409, subidas) y recorrido de la interfaz en un navegador (login/logout, rutas protegidas, perfil público, edición de álbum y lámina, validación inline, progreso y repetidas).
+- Backend: `npm run typecheck`, `npm run lint`, `npm run format:check` y `npm test` en verde (**8 archivos / 120 pruebas**, sin base de datos).
+- Frontend: `npm run typecheck`, `npm run lint` (**0 errores / 4 advertencias preexistentes**), `npm run format:check` y `npm run build` en verde.
+- Docker/runtime: reconstrucción limpia con `docker compose up -d --build`, los tres servicios en `(healthy)`, `GET /health` y `GET /healthz` correctos, y seed ejecutado dos veces correctamente.
+- Subidas: carga PNG real mediante Multer y servicio estático de archivos subidos y generados por el seed verificados sobre el bind mount.
+- Recorrido principal verificado en la aplicación real: login, catálogos, reportes con datos y selector de álbumes. Las ramas de error de los reportes y de `GET /albums`, y los estados vacíos asociados, se inspeccionaron en código; no se forzaron manualmente.

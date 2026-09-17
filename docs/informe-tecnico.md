@@ -61,13 +61,13 @@ visibilidad** (`isPublic`).
 | Tecnología | Versión | Para qué se usa |
 |---|---|---|
 | Node.js | 20+ (probado en 24) | Runtime del servidor |
-| Express | 4.21 | Servidor HTTP y enrutado |
-| TypeScript | 5.8 (`strict`) | Tipado estático en todo el proyecto |
+| Express | 4.22 | Servidor HTTP y enrutado |
+| TypeScript | 5.9 (`strict`) | Tipado estático en todo el proyecto |
 | Prisma ORM | 6.19 | Modelo de datos, migraciones y acceso a MySQL |
 | MySQL | 8 (Docker) | Persistencia |
-| Zod | 3.24 | Validación de `body`, `query`, `params`, archivos y variables de entorno |
+| Zod | 3.25 | Validación de `body`, `query`, `params`, archivos y variables de entorno |
 | bcryptjs | 2.4 | Hash de contraseñas (10 rondas) |
-| express-session | 1.18 | Sesiones con cookie firmada y store en MySQL |
+| express-session | 1.19 | Sesiones con cookie firmada y store en MySQL |
 | Multer | 1.4 | Subida de imágenes (disco, MIME permitidos, 5 MB) |
 | ESLint 10 + Prettier 3 | — | Calidad y formato |
 | Vitest | 3.2 | Pruebas automatizadas (sin base de datos) |
@@ -78,7 +78,7 @@ visibilidad** (`isPublic`).
 | Tecnología | Versión | Para qué se usa |
 |---|---|---|
 | React | 18.3 | Interfaz por componentes |
-| TypeScript | 5.8 (`strict`) | Tipado estático |
+| TypeScript | 5.9 (`strict`) | Tipado estático |
 | React Router | 7 | Rutas SPA y rutas protegidas |
 | Zod | 3.24 | Validación de formularios en el cliente (espejo del servidor) |
 | TailwindCSS | 3.4 | Estilos utilitarios y tema propio |
@@ -125,7 +125,7 @@ Los **contratos** de cada capa se declaran en `src/interfaces/` (`I*Repository`,
 implementaciones se eligen en **un único punto**: `src/config/container.ts`. Los controllers y
 services reciben sus dependencias **por constructor** (Principio de Inversión de Dependencias).
 
-**`app/backend/src/config/container.ts` (líneas 1-32)**
+**`app/backend/src/config/container.ts`**
 
 ```ts
 import { PrismaAlbumRepository } from '@/repositories/album.repository'
@@ -196,7 +196,7 @@ app.use(errorHandler)                                               // 6. errore
 El orden importa: los estáticos se resuelven antes que la API, y el manejador de errores va al final
 para capturar lo que lancen las capas anteriores.
 
-**`app/backend/src/app.ts` (líneas 1-19)**
+**`app/backend/src/app.ts`**
 
 ```ts
 import path from 'path'
@@ -236,7 +236,7 @@ termina con código 1 antes de aceptar la primera petición:
 El esquema vive en `validations/env.schema.ts` (código puro) y `config/env.ts` solo lo aplica, lo que
 permite reutilizarlo en las pruebas sin disparar el `process.exit`.
 
-**`app/backend/src/validations/env.schema.ts` (líneas 1-21)**
+**`app/backend/src/validations/env.schema.ts`**
 
 ```ts
 import { z } from 'zod'
@@ -292,7 +292,7 @@ export const prisma = baseClient.$extends({
 
 Gracias a esto, **ninguna capa fuera de la infraestructura de datos conoce los códigos de Prisma**.
 
-**`app/backend/src/config/prisma.ts` (líneas 1-20)**
+**`app/backend/src/config/prisma.ts`**
 
 ```ts
 import { PrismaClient } from '@prisma/client'
@@ -317,7 +317,7 @@ export const prisma = baseClient.$extends({
 })
 ```
 
-**`app/backend/src/config/prismaError.ts` (líneas 1-19)**
+**`app/backend/src/config/prismaError.ts`**
 
 ```ts
 import { Prisma } from '@prisma/client'
@@ -365,7 +365,7 @@ Tomemos un caso real: **`POST /api/collections/4/stickers`** (pegar una lámina 
 8. Si algo falla en cualquier punto, el error llega al **`errorHandler` central**, que responde JSON
    con el status correcto.
 
-**`app/backend/src/services/collection.service.ts` (líneas 98-120)**
+**`app/backend/src/services/collection.service.ts`**
 
 ```ts
   async addSticker(collectionId: number, data: AddCollectedStickerInput, userId: number) {
@@ -399,7 +399,7 @@ Tomemos un caso real: **`POST /api/collections/4/stickers`** (pegar una lámina 
 Los routers de `src/routes/` solo importan el controlador del contenedor, montan la ruta y encadenan
 middlewares. No contienen ni una línea de lógica.
 
-**`app/backend/src/routes/collection.routes.ts` (líneas 1-74)**
+**`app/backend/src/routes/collection.routes.ts`**
 
 ```ts
 import { Router } from 'express'
@@ -528,7 +528,7 @@ Recibe un esquema Zod y una **fuente** (`body`, `query`, `params` o `file`). Usa
 - Para `file` valida pero **no reemplaza** el objeto de Multer, porque de él se necesitan después
   `filename` y `path`.
 
-**`app/backend/src/middlewares/validate.ts` (líneas 1-35)**
+**`app/backend/src/middlewares/validate.ts`**
 
 ```ts
 import type { NextFunction, Request, Response } from 'express'
@@ -582,7 +582,7 @@ nombre original: así no se puede colar un `.html` o un `.svg` que después se s
 `/uploads`. El `fileFilter` rechaza cualquier MIME fuera de la lista con un `HttpError(400)`, y el
 límite `fileSize` es de 5 MB.
 
-**`app/backend/src/middlewares/upload.ts` (líneas 1-45)**
+**`app/backend/src/middlewares/upload.ts`**
 
 ```ts
 import fs from 'fs'
@@ -648,7 +648,7 @@ lugar que construye respuestas de error y mantiene siempre la forma
 | Cuerpo demasiado grande (`entity.too.large`) | 413 | `payload_too_large` |
 | Error inesperado | 500 | `internal_error` (sin filtrar el mensaje original) |
 
-**`app/backend/src/middlewares/error.ts` (líneas 1-53)**
+**`app/backend/src/middlewares/error.ts`**
 
 ```ts
 import type { NextFunction, Request, Response } from 'express'
@@ -717,7 +717,7 @@ Son **clases** con el servicio inyectado por constructor. Cada handler:
   rutas protegidas, y lee `req.session.userId` directamente en las públicas;
 - responde con `200`/`201` y JSON.
 
-**`app/backend/src/controllers/collection.controller.ts` (líneas 1-45)**
+**`app/backend/src/controllers/collection.controller.ts`**
 
 ```ts
 import type { Request, Response } from 'express'
@@ -782,7 +782,7 @@ export function assertOwnership(ownerId: number | null, currentUserId: number, m
 
 Consecuencia importante: un recurso **sin dueño** (`userId` nulo) tampoco es mutable por nadie.
 
-**`app/backend/src/services/albumAccess.ts` (líneas 1-13)**
+**`app/backend/src/services/albumAccess.ts`**
 
 ```ts
 import { HttpError } from '@/utils/httpError'
@@ -821,7 +821,7 @@ export function assertOwnership(
 | **Faltantes** | Láminas del álbum menos los ids ya poseídos (diferencia de conjuntos en el servicio) | Reporte de faltantes |
 | **Reporte de repetidas** | Consulta `quantity > 1` **o** `isDuplicated = true`, con la cantidad por lámina | Lista para intercambio |
 
-**`app/backend/src/services/collection.service.ts` (líneas 185-217)**
+**`app/backend/src/services/collection.service.ts`**
 
 ```ts
   private buildQueryFilter(query: ListCollectionsInput): CollectionQueryFilter | null {
@@ -860,7 +860,7 @@ export function assertOwnership(
 ```
 
 
-**`app/backend/src/services/collection.service.ts` (líneas 26-38)**
+**`app/backend/src/services/collection.service.ts`**
 
 ```ts
 /** Láminas únicas obtenidas frente al total declarado por el álbum. */
@@ -890,7 +890,7 @@ hay reglas de negocio, solo consultas y escrituras. Dos detalles relevantes:
 - La búsqueda de repetidas concentra la condición `quantity > 1 OR isDuplicated = true` en la propia
   consulta.
 
-**`app/backend/src/repositories/collection.repository.ts` (líneas 1-45)**
+**`app/backend/src/repositories/collection.repository.ts`**
 
 ```ts
 import { prisma } from '@/config/prisma'
@@ -961,7 +961,7 @@ Esto produce tres beneficios concretos: los controladores dependen de **contrato
 composición queda en un solo archivo, y las pruebas pueden sustituir los repositorios por dobles en
 memoria (el compilador garantiza que el doble es un sustituto válido).
 
-**`app/backend/src/interfaces/collection.service.interface.ts` (líneas 40-62)**
+**`app/backend/src/interfaces/collection.service.interface.ts`**
 
 ```ts
 
@@ -1011,7 +1011,7 @@ erDiagram
 | `CollectedSticker` | `collectionId`, `stickerId`, `quantity`, `isDuplicated` | `@@unique([collectionId, stickerId])` → una fila por lámina |
 | `Session` | `sid`, `data`, `expiresAt` (+ índice) | Persistencia de `express-session` |
 
-**`app/backend/prisma/schema.prisma` (líneas 1-80)**
+**`app/backend/prisma/schema.prisma`**
 
 ```prisma
 generator client {
@@ -1108,7 +1108,7 @@ model Session {
   sesiones** de los usuarios. Implementa `get`, `set`, `destroy`, `touch` y `clear`, y descarta las
   sesiones caducadas al leerlas.
 
-**`app/backend/src/config/sessionStore.ts` (líneas 1-59)**
+**`app/backend/src/config/sessionStore.ts`**
 
 ```ts
 import session from 'express-session'
@@ -1173,7 +1173,7 @@ export class PrismaSessionStore extends session.Store {
 ```
 
 
-**`app/backend/src/services/auth.service.ts` (líneas 1-44)**
+**`app/backend/src/services/auth.service.ts`**
 
 ```ts
 import bcrypt from 'bcryptjs'
@@ -1251,7 +1251,7 @@ Decisiones destacables:
 - **Actualizaciones**: `nonEmptyUpdate` obliga a enviar al menos un campo (un `PUT {}` responde 400).
 - **Errores**: todos los mensajes de validación se ven en español y con la ruta del campo.
 
-**`app/backend/src/validations/common.ts` (líneas 1-44)**
+**`app/backend/src/validations/common.ts`**
 
 ```ts
 import { z } from 'zod'
@@ -1336,7 +1336,7 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
 </AuthProvider>
 ```
 
-**`app/frontend/src/App.tsx` (líneas 1-13)**
+**`app/frontend/src/App.tsx`**
 
 ```tsx
 import { AuthProvider } from '@/context/AuthContext'
@@ -1354,7 +1354,7 @@ export default function App() {
 }
 ```
 
-**`app/frontend/src/main.tsx` (líneas 1-13)**
+**`app/frontend/src/main.tsx`**
 
 ```tsx
 import React from 'react'
@@ -1389,7 +1389,7 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
 `RequireAuth` (`src/routes/RequireAuth.tsx`) envuelve las rutas privadas: mientras se comprueba la
 sesión muestra un aviso de carga, y si no hay usuario redirige a `/login`.
 
-**`app/frontend/src/routes/RequireAuth.tsx` (líneas 1-23)**
+**`app/frontend/src/routes/RequireAuth.tsx`**
 
 ```tsx
 import { Navigate, Outlet } from 'react-router-dom'
@@ -1427,7 +1427,7 @@ export function RequireAuth() {
 - `logout` destruye la sesión en el servidor y limpia el estado local;
 - los componentes consumen la sesión con el hook `useAuth()`.
 
-**`app/frontend/src/context/AuthContext.tsx` (líneas 1-60)**
+**`app/frontend/src/context/AuthContext.tsx`**
 
 ```tsx
 import { createContext, useContext, useEffect, useState, type ReactNode } from 'react'
@@ -1497,13 +1497,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
 Un único envoltorio de `fetch` centraliza el acceso a la API:
 
-- prefijo `/api` y `credentials: 'include'` (la cookie de sesión viaja en cada petición);
-- cabecera `Content-Type: application/json` automática, salvo en `FormData`;
-- en respuestas no exitosas lanza `ApiError` con `status`, `message`, `code` y `details`;
-- dos utilidades para formularios: `getFieldErrors(err)` (un mensaje por campo, con la clave `_form`
-  para errores generales) y `getIssues(err)` (mensajes con su ruta, útil en la carga masiva).
+- añade el prefijo `/api` y `credentials: 'include'` para enviar la cookie de sesión;
+- configura `Content-Type: application/json` automáticamente, salvo en `FormData`;
+- analiza las respuestas de error estructuradas del backend y lanza `ApiError` con `status`, `message`,
+  `code` y `details`;
+- `getIssues(err)` conserva los mensajes con su ruta, útil en la carga masiva;
+- `getFieldErrors(err)` convierte `fieldErrors` o el primer issue en un mensaje por campo y usa
+  `_form` cuando el error no tiene ruta;
+- `getServerErrors(err, fallback)` compone `getFieldErrors`, separa `_form` como error general y
+  devuelve `{ fields, form }`. Los formularios reutilizan esta transformación, pero conservan sus
+  propios mensajes fallback según la operación.
 
-**`app/frontend/src/services/api.ts` (líneas 1-30)**
+**`app/frontend/src/services/api.ts`**
 
 ```ts
 export interface ApiIssue {
@@ -1538,9 +1543,28 @@ export class ApiError extends Error {
 }
 ```
 
-**`app/frontend/src/services/api.ts` (líneas 55-87)**
+**`app/frontend/src/services/api.ts`**
 
 ```ts
+export function getIssues(err: unknown): ApiIssue[] {
+  if (!isApiError(err)) return []
+  return err.details?.issues ?? []
+}
+
+/**
+ * Errores por campo listos para pintar bajo cada input. Si el backend solo
+ * devuelve un error de formulario (ruta vacía) se expone en la clave `_form`.
+ */
+export function getFieldErrors(err: unknown): Record<string, string> {
+  if (!isApiError(err)) return {}
+
+  const fieldErrors = err.details?.fieldErrors
+  if (fieldErrors) {
+    const result: Record<string, string> = {}
+    for (const [field, messages] of Object.entries(fieldErrors)) {
+      if (messages && messages.length > 0) result[field] = messages[0]
+    }
+    if (Object.keys(result).length > 0) return result
   }
 
   const firstIssue = getIssues(err)[0]
@@ -1548,31 +1572,14 @@ export class ApiError extends Error {
   return {}
 }
 
-export async function api<T>(path: string, init?: RequestInit): Promise<T> {
-  const isFormData = init?.body instanceof FormData
-  const headers = new Headers(init?.headers)
-
-  if (!isFormData && !headers.has('Content-Type') && init?.method && init.method !== 'GET') {
-    headers.set('Content-Type', 'application/json')
-  }
-
-  const res = await fetch(`/api${path}`, {
-    credentials: 'include',
-    ...init,
-    headers,
-  })
-
-  if (!res.ok) {
-    const body = (await res.json().catch(() => null)) as ApiErrorBody | null
-    throw new ApiError(
-      res.status,
-      body?.message ?? `Error ${res.status}`,
-      body?.error ?? 'http_error',
-      body?.details,
-    )
-  }
-
-  return res.json() as Promise<T>
+export function getServerErrors(
+  err: unknown,
+  fallback: string,
+): { fields: Record<string, string>; form: string | null } {
+  const { _form, ...fields } = getFieldErrors(err)
+  if (_form) return { fields, form: _form }
+  if (Object.keys(fields).length > 0) return { fields, form: null }
+  return { fields, form: err instanceof Error ? err.message : fallback }
 }
 ```
 
@@ -1593,10 +1600,10 @@ aparecen `alert` ni `confirm`.
   `addCollectedStickerSchema`/`updateCollectedStickerSchema`.
 
 Regla de trabajo: **el cliente valida para dar buena experiencia; el servidor valida porque es la
-autoridad**. Por eso las páginas muestran también los errores que devuelve la API
-(`getFieldErrors`).
+autoridad**. Por eso los formularios muestran también los errores que devuelve la API mediante
+`getServerErrors`; la carga masiva conserva `getIssues` porque necesita asociar errores con filas.
 
-**`app/frontend/src/validations/collection.schema.ts` (líneas 1-37)**
+**`app/frontend/src/validations/collection.schema.ts`**
 
 ```ts
 // Espejo de app/backend/src/validations/collection.schema.ts: mantén los límites sincronizados.
@@ -1639,7 +1646,7 @@ export type UpdateCollectedStickerInput = z.infer<typeof updateCollectedStickerS
 ```
 
 
-**`app/frontend/src/pages/Register.tsx` (líneas 30-48)**
+**`app/frontend/src/pages/Register.tsx`**
 
 ```tsx
   const handleSubmit = async (e: FormEvent) => {
@@ -1658,7 +1665,7 @@ export type UpdateCollectedStickerInput = z.infer<typeof updateCollectedStickerS
       await register(result.data.username, result.data.email, result.data.password)
       navigate('/albums')
     } catch (err: unknown) {
-      const { fields, form } = serverErrors(err, 'Error al registrarse')
+      const { fields, form } = getServerErrors(err, 'Error al registrarse')
       setFieldErrors(fields)
       setGeneralError(form)
 ```
@@ -1672,7 +1679,7 @@ export type UpdateCollectedStickerInput = z.infer<typeof updateCollectedStickerS
 | `Register.tsx` | `/register` | Alta de usuario (usuario, email, contraseña) | `POST /auth/register` |
 | `AlbumsList.tsx` | `/albums` | Catálogo en rejilla; crear y **editar** álbum (modal compartido) con subida de portada; el botón de edición solo aparece al dueño | `GET /albums`, `POST /albums`, `PUT /albums/:id`, `POST /upload` |
 | `AlbumDetail.tsx` | `/albums/:id` | Ficha del álbum con su catálogo; añadir lámina, **carga masiva** con errores por fila, **editar** y eliminar lámina; inspector de lámina ampliada | `GET /albums/:id`, `POST /albums/:albumId/stickers`, `.../bulk`, `PUT/DELETE /stickers/:id`, `POST /upload` |
-| `CollectionsList.tsx` | `/collections` | Pestañas "comunidad" y "mis colecciones", crear colección, progreso de cada tarjeta y autor enlazado a su perfil | `GET /collections`, `POST /collections` |
+| `CollectionsList.tsx` | `/collections` | Pestañas "comunidad" y "mis colecciones", crear colección, progreso de cada tarjeta y autor enlazado a su perfil | `GET /collections`, `GET /albums`, `POST /collections` |
 | `CollectionDetail.tsx` | `/collections/:id` | Detalle con barra de progreso y tres pestañas (pegadas / faltantes / repetidas); pegar lámina, subir y bajar copias con el stepper, quitar, **renombrar**, cambiar visibilidad y eliminar; insignia "para cambio" en repetidas | `GET /collections/:id`, `.../missing`, `.../duplicates`, `POST/PUT/DELETE` de láminas, `PUT /collections/:id`, `DELETE /collections/:id` |
 | `Profile.tsx` | `/profile` | Panel propio (protegido): colecciones públicas y privadas con su progreso | `GET /collections?userId=<yo>` |
 | `UserProfile.tsx` | `/users/:id` | Perfil público: colecciones públicas de otro coleccionista | `GET /collections?userId=<id>` |
@@ -1684,7 +1691,18 @@ cambiar visibilidad) se renderizan **solo** cuando el recurso pertenece al usuar
 colecciones muestran una insignia `PÚBLICA`/`PRIVADA`. Aun así, el servidor vuelve a comprobar la
 propiedad y la visibilidad en cada petición: la interfaz es una comodidad, no un control de seguridad.
 
-**`app/frontend/src/pages/CollectionDetail.tsx` (líneas 199-217)**
+En `CollectionDetail`, `GET /collections/:id/missing` y
+`GET /collections/:id/duplicates` se resuelven con `Promise.allSettled`: una respuesta correcta con
+datos muestra el reporte, una respuesta correcta con `[]` muestra su estado vacío y un rechazo
+muestra el error específico de esa pestaña. Los reportes son independientes, por lo que uno sigue
+utilizable aunque el otro falle.
+
+La creación en `CollectionsList` depende de `GET /albums` y representa cuatro estados: carga,
+respuesta con álbumes, respuesta vacía y error. El envío queda deshabilitado mientras los álbumes
+están cargando, fallaron o no existen; `Reintentar` reutiliza `loadAlbums`. La validación Zod de
+`albumId` sigue separada de los errores de carga del catálogo.
+
+**`app/frontend/src/pages/CollectionDetail.tsx`**
 
 ```tsx
   const handleTogglePublic = async () => {
@@ -1717,7 +1735,7 @@ propiedad y la visibilidad en cada petición: la interfaz es una comodidad, no u
 - Estilos globales en `src/index.css` (directivas de Tailwind y barra de desplazamiento).
 - El componente `StickDexLogo` dibuja el isotipo (lámina con esquina despegada) en SVG.
 
-**`app/frontend/tailwind.config.js` (líneas 1-28)**
+**`app/frontend/tailwind.config.js`**
 
 ```js
 /** @type {import('tailwindcss').Config} */
@@ -1775,7 +1793,7 @@ Cuando la aplicación corre con Docker Compose, este papel lo cumple **Nginx** c
 `backend`, resuelve cualquier ruta de la SPA con `try_files ... /index.html`, expone `/healthz` para
 su propio health check y admite cuerpos de hasta 6 MB para las subidas.
 
-**`app/frontend/vite.config.ts` (líneas 1-26)**
+**`app/frontend/vite.config.ts`**
 
 ```ts
 import { fileURLToPath } from 'node:url'
@@ -1821,7 +1839,7 @@ export default defineConfig({
 4. En la ficha del álbum añade láminas una a una o por **carga masiva**; si dos láminas comparten
    número aparece el error de fila en el formulario y, si llega al servidor, responde **409**.
 
-**`app/frontend/src/pages/AlbumDetail.tsx` (líneas 160-211)**
+**`app/frontend/src/pages/AlbumDetail.tsx`**
 
 ```tsx
   const handleBulkCreate = async (e: FormEvent) => {
@@ -1886,10 +1904,11 @@ export default defineConfig({
 2. El botón `+` del detalle envía `PUT /api/collections/:id/stickers/:stickerId` con la nueva
    cantidad; el servidor recalcula la marca de repetida. El botón `-` hasta cero elimina la lámina.
 3. La barra de progreso usa el `progress` que calcula el servidor (únicas / total del álbum).
-4. Las pestañas "Faltantes" y "Repetidas" llaman a los endpoints de reporte; las repetidas se
-   muestran con la cantidad y la insignia `+N para cambio`.
+4. Las pestañas "Faltantes" y "Repetidas" llaman a sus endpoints de reporte de forma independiente:
+   datos, respuesta vacía y fallo son estados distintos, y un reporte correcto permanece utilizable
+   si el otro falla.
 
-**`app/frontend/src/pages/CollectionDetail.tsx` (líneas 164-187)**
+**`app/frontend/src/pages/CollectionDetail.tsx`**
 
 ```tsx
   const handleUpdateQuantity = async (stickerId: number, currentQty: number, delta: number) => {
@@ -1930,7 +1949,7 @@ export default defineConfig({
 | Usuario B pide `?isPublic=false` | Lista vacía (no puede listar privadas ajenas) | `buildQueryFilter` |
 | Anónimo llama a una ruta de escritura | **401** | `requireAuth` |
 
-**`app/backend/tests/catalog.service.test.ts` (líneas 83-105)**
+**`app/backend/tests/catalog.service.test.ts`**
 
 ```ts
   it('devuelve 403 al modificar o borrar el álbum de otro usuario', async () => {
@@ -2009,9 +2028,10 @@ Cómo se construye cada imagen:
 
 Detalles que hacen que el arranque sea cómodo: los `depends_on` con `condition: service_healthy`
 evitan que el backend arranque antes que MySQL o que Nginx resuelva el nombre `backend` cuando aún no
-existe; la carpeta `app/backend/uploads` se comparte con el contenedor, así que las imágenes del seed
-y las subidas se ven igual desde Docker y desde el modo desarrollo; y el volumen `db_data` conserva la
-base entre arranques (el seed solo hace falta ejecutarlo una vez).
+existe; el bind mount `./backend/uploads:/app/uploads:z` conecta `app/backend/uploads` del host con
+`/app/uploads` del contenedor, por lo que las imágenes del seed y las subidas persisten en el host y
+se ven igual desde Docker y desde el modo desarrollo; y el volumen `db_data` conserva la base entre
+arranques (el seed solo hace falta ejecutarlo una vez).
 
 > **Varias copias del proyecto a la vez:** Compose nombra el proyecto según la carpeta (`app`), de modo
 > que dos copias del repositorio compartirían contenedores, volumen de MySQL y puertos. Para aislar una
@@ -2056,7 +2076,7 @@ Comprobaciones útiles y problemas frecuentes:
 | Error de conexión a MySQL | El contenedor no está arriba | `docker compose ps` y `docker compose up -d` |
 | Vite arranca en otro puerto | El 5173 está ocupado | Usar el puerto que indique la consola |
 
-**`app/docker-compose.yml` (líneas 1-16)**
+**`app/docker-compose.yml`**
 
 ```yaml
 services:
@@ -2115,7 +2135,7 @@ volumes:
 
 
 
-**`app/backend/tests/collection.service.test.ts` (líneas 1-40)**
+**`app/backend/tests/collection.service.test.ts`**
 
 ```ts
 import { beforeEach, describe, expect, it } from 'vitest'
@@ -2160,7 +2180,7 @@ function createFixture(): CollectionFixture {
       id: 1,
 ```
 
-**`app/backend/tests/fakes/collectionRepository.fake.ts` (líneas 1-30)**
+**`app/backend/tests/fakes/collectionRepository.fake.ts`**
 
 ```ts
 import type { CollectedSticker, Collection, Sticker } from '@prisma/client'
@@ -2198,18 +2218,20 @@ export type SeedCollection = {
 
 ### 8.1 Verificación ejecutada sobre este repositorio
 
-- Backend: `typecheck`, `lint`, `format:check` y `npm test` (**120/120**) en verde.
-- Frontend: `typecheck`, `lint` (0 errores) y `format:check` en verde.
-- Pruebas de humo manuales sobre la aplicación real: recorrido de la API (login, autorización por
-  propiedad, visibilidad, reportes, conflicto 409, subidas) y de la interfaz en navegador (login y
-  logout, ruta protegida, perfil público, edición de álbum y lámina, validación inline, progreso y
-  repetidas).
-- Stack completo con Docker Compose verificado: `docker compose up -d --build` deja los tres
-  servicios en `(healthy)`; el backend aplica las migraciones al arrancar; `/health` responde
-  `{"status":"ok","database":"up"}` y pasa a `503` con `database: "down"` al detener MySQL, volviendo
-  a `200` cuando la base se recupera; a través de Nginx se sirve la SPA, se proxean `/api` y
-  `/uploads`, se conserva el `404` de la API, el login con cookie funciona y una subida de 2 MB se
-  acepta y se sirve de vuelta.
+- **Backend**: `typecheck`, `lint`, `format:check` y `npm test` en verde; **8 archivos / 120 pruebas**
+  pasaron sin base de datos.
+- **Frontend**: `typecheck`, `format:check` y build de producción en verde; lint terminó con **0
+  errores y 4 advertencias preexistentes**.
+- **Docker/runtime**: una reconstrucción limpia con `docker compose up -d --build` dejó `db`,
+  `backend` y `frontend` en `(healthy)`; `GET /health` respondió
+  `{"status":"ok","database":"up"}` y `GET /healthz` respondió `ok`.
+- **Seed y archivos**: el seed pasó en dos ejecuciones consecutivas; una subida PNG real mediante
+  Multer persistió en el bind mount, y se verificó el servicio estático de archivos subidos y
+  generados por el seed.
+- **Smoke principal**: login, catálogo de álbumes, lista y detalle de colecciones, reportes con datos
+  y selector de álbumes de la creación se comprobaron sobre la aplicación real.
+- Las ramas de error de los dos reportes, las respuestas vacías y los estados de error/vacío de
+  `GET /albums` se inspeccionaron en código; no se forzaron manualmente.
 
 ---
 

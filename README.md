@@ -1,12 +1,12 @@
-# StickDex 📖✨
+# StickDex 
 
 Sistema web fullstack para coleccionistas de láminas de álbumes. Permite crear álbumes con sus catálogos de láminas (con foto y carga masiva), gestionar colecciones personales con cálculo de progreso en tiempo real (%), y obtener reportes automáticos de láminas faltantes y láminas repetidas para intercambio.
 
-**Documentación:** [`docs/brief.md`](docs/brief.md) (especificación y Definition of Done) · [`docs/informe-tecnico.md`](docs/informe-tecnico.md) (informe técnico detallado: arquitectura, capas del backend, frontend, flujos y catálogo de figuras).
+**Documentación:** [`docs/brief.md`](docs/brief.md) (especificación y Definition of Done) · [`docs/informe-tecnico.md`](docs/informe-tecnico.md) (informe técnico detallado: arquitectura, capas del backend y del frontend, flujos de trabajo y decisiones de diseño).
 
 ---
 
-## 🚀 Stack Tecnológico
+## Stack Tecnológico
 
 ### Backend (`app/backend`)
 - **Runtime & Servidor:** Node.js, Express.js
@@ -31,7 +31,7 @@ Sistema web fullstack para coleccionistas de láminas de álbumes. Permite crear
 
 ---
 
-## 🏛️ Arquitectura y Principios de Diseño
+## Arquitectura y Principios de Diseño
 
 El backend implementa una **Arquitectura MVC Limpia** con separación estricta de responsabilidades:
 
@@ -58,7 +58,7 @@ HTTP Response ◄─────────────────────
 
 ---
 
-## 📁 Estructura del Proyecto
+## Estructura del Proyecto
 
 ```
 StickDex/
@@ -66,7 +66,7 @@ StickDex/
 ├── AGENTS.md               # Protocolo operativo de desarrollo
 ├── docs/
 │   ├── brief.md            # Especificación completa y requerimientos
-│   └── informe-tecnico.md  # Informe técnico detallado (arquitectura, capas, flujos y catálogo de figuras)
+│   └── informe-tecnico.md  # Informe técnico detallado (arquitectura, capas del backend y del frontend, flujos)
 ├── app/
 │   ├── docker-compose.yml  # Configuración del servicio MySQL
 │   ├── backend/
@@ -106,14 +106,14 @@ StickDex/
 
 ---
 
-## 📋 Requisitos Previos
+## Requisitos Previos
 
 - **Node.js** (v20 o superior) y **npm**
 - **Docker** y **Docker Compose**
 
 ---
 
-## 🛠️ Cómo Levantar el Proyecto
+## Cómo Levantar el Proyecto
 
 ### 1. Iniciar la Base de Datos con Docker
 
@@ -168,7 +168,7 @@ La aplicación web estará disponible en `http://localhost:5173`.
 
 ---
 
-## 👥 Datos de Prueba (Seed)
+## Datos de Prueba (Seed)
 
 Para probar la aplicación inmediatamente sin tener que registrarse o crear datos manualmente, ejecuta:
 
@@ -196,7 +196,7 @@ El seed es **idempotente y reproducible**: actualiza el álbum de demo (y lo asi
 
 ---
 
-## 📡 Endpoints de la API REST
+## Endpoints de la API REST
 
 Base URL: `http://localhost:3000/api`
 
@@ -263,7 +263,7 @@ Todas las respuestas de error siguen el mismo contrato:
 
 Códigos usados: `400` validación, JSON malformado, archivo demasiado grande (`file_too_large`) o subida rechazada (`upload_error`); `401` sin sesión o credenciales inválidas; `403` recurso ajeno o colección privada; `404` recurso o ruta inexistente; `409` dato duplicado; `413` cuerpo de la petición demasiado grande (`payload_too_large`); `500` error interno.
 
-## 🧭 Rutas del frontend
+## Rutas del frontend
 
 | Ruta | Acceso | Vista |
 |---|---|---|
@@ -278,7 +278,7 @@ Las acciones de escritura (crear/editar/eliminar) solo se muestran al dueño del
 
 ---
 
-## 🧪 Verificación y Scripts Disponibles
+## Verificación y Scripts Disponibles
 
 ### Backend (`app/backend`)
 - `npm run dev`: Inicia el backend en modo watch con `tsx`.

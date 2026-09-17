@@ -8,12 +8,12 @@
 | **Tipo** | Aplicación web fullstack (cliente + servidor + base de datos) |
 | **Repositorio** | `StickDex/` — backend en `app/backend`, frontend en `app/frontend` |
 | **Documentos relacionados** | `docs/brief.md` (especificación y Definition of Done), `AGENTS.md` (protocolo de desarrollo), `README.md` (guía de uso) |
-| **Estado** | Implementado, verificado y pusheado (`main` = `origin/main`) |
+| **Estado** | Implementado y verificado: typecheck, lint, formato y 120 pruebas automatizadas en verde |
 
 Este informe explica **cómo funciona el proyecto por dentro**: qué hace cada capa del backend, cómo se
 validan y autorizan las peticiones, cómo se modelan los datos, y cómo el frontend consume la API y
-valida los formularios. Al final hay un **anexo con el catálogo de figuras**: en el texto encontrarás
-marcas `[IMAGEN n — pendiente]` que indican exactamente qué captura de código poner y dónde.
+valida los formularios. Cada explicación va acompañada del **código real** del proyecto, copiado de
+los archivos tal como están en el repositorio.
 
 ---
 
@@ -28,8 +28,7 @@ marcas `[IMAGEN n — pendiente]` que indican exactamente qué captura de códig
 7. [Puesta en marcha local](#7-puesta-en-marcha-local)
 8. [Calidad: scripts, lint, formato y pruebas](#8-calidad-scripts-lint-formato-y-pruebas)
 9. [Decisiones de diseño y desviaciones](#9-decisiones-de-diseño-y-desviaciones)
-10. [Anexo A — Catálogo de figuras](#anexo-a--catálogo-de-figuras)
-11. [Anexo B — Glosario](#anexo-b--glosario)
+10. [Anexo A — Glosario](#anexo-a--glosario)
 
 ---
 
@@ -113,10 +112,6 @@ flowchart LR
   E -->|JSON error message details| C
 ```
 
-> **[IMAGEN 1 — pendiente]**
-> **Qué capturar:** diagrama de capas exportado como imagen (o captura del bloque Mermaid renderizado en GitHub/VSCode).
-> **Archivo sugerido:** `docs/img/01-arquitectura-capas.png`
-> **Pie sugerido:** «Figura 1. Cadena de capas del backend: ninguna capa salta a la siguiente y solo los repositorios hablan con Prisma.»
 
 | Capa | Responsabilidad única | Qué **no** hace | Dónde vive |
 |---|---|---|---|
@@ -130,10 +125,43 @@ Los **contratos** de cada capa se declaran en `src/interfaces/` (`I*Repository`,
 implementaciones se eligen en **un único punto**: `src/config/container.ts`. Los controllers y
 services reciben sus dependencias **por constructor** (Principio de Inversión de Dependencias).
 
-> **[IMAGEN 2 — pendiente]**
-> **Qué capturar:** `app/backend/src/config/container.ts` completo (líneas 1-38).
-> **Archivo sugerido:** `docs/img/02-composition-root.png`
-> **Pie sugerido:** «Figura 2. Raíz de composición: único lugar donde se instancian las implementaciones Prisma y se inyectan en servicios y controladores.»
+**`app/backend/src/config/container.ts` (líneas 1-32)**
+
+```ts
+import { PrismaAlbumRepository } from '@/repositories/album.repository'
+import { PrismaCollectionRepository } from '@/repositories/collection.repository'
+import { PrismaSessionRepository } from '@/repositories/session.repository'
+import { PrismaStickerRepository } from '@/repositories/sticker.repository'
+import { PrismaUserRepository } from '@/repositories/user.repository'
+import { AlbumService } from '@/services/album.service'
+import { AuthService } from '@/services/auth.service'
+import { CollectionService } from '@/services/collection.service'
+import { StickerService } from '@/services/sticker.service'
+import { AlbumController } from '@/controllers/album.controller'
+import { AuthController } from '@/controllers/auth.controller'
+import { CollectionController } from '@/controllers/collection.controller'
+import { StickerController } from '@/controllers/sticker.controller'
+import { UploadController } from '@/controllers/upload.controller'
+import { PrismaSessionStore } from '@/config/sessionStore'
+
+// Raíz de composición: único lugar donde se eligen las implementaciones
+// concretas y se inyectan por constructor (Dependency Inversion).
+const users = new PrismaUserRepository()
+const albums = new PrismaAlbumRepository()
+const stickers = new PrismaStickerRepository()
+const collections = new PrismaCollectionRepository()
+
+export const sessionStore = new PrismaSessionStore(new PrismaSessionRepository())
+
+export const authController = new AuthController(new AuthService(users))
+export const albumController = new AlbumController(new AlbumService(albums))
+export const stickerController = new StickerController(new StickerService(stickers, albums))
+export const collectionController = new CollectionController(
+  new CollectionService(collections, stickers, albums, users),
+)
+export const uploadController = new UploadController()
+```
+
 
 ---
 
@@ -168,10 +196,30 @@ app.use(errorHandler)                                               // 6. errore
 El orden importa: los estáticos se resuelven antes que la API, y el manejador de errores va al final
 para capturar lo que lancen las capas anteriores.
 
-> **[IMAGEN 3 — pendiente]**
-> **Qué capturar:** `app/backend/src/app.ts` completo (líneas 1-19), resaltando las 6 líneas de `app.use`.
-> **Archivo sugerido:** `docs/img/03-app-express.png`
-> **Pie sugerido:** «Figura 3. Cadena de middlewares globales: el manejador de errores se registra en último lugar.»
+**`app/backend/src/app.ts` (líneas 1-19)**
+
+```ts
+import path from 'path'
+import express from 'express'
+import { sessionMiddleware } from '@/config/session'
+import { errorHandler } from '@/middlewares/error'
+import { notFoundHandler } from '@/middlewares/notFound'
+import { apiRouter } from '@/routes'
+
+export const app = express()
+
+app.use(express.json())
+app.use(sessionMiddleware)
+
+// Servir archivos estáticos subidos
+app.use('/uploads', express.static(path.join(process.cwd(), 'uploads')))
+
+app.use('/api', apiRouter)
+
+app.use(notFoundHandler)
+app.use(errorHandler)
+```
+
 
 #### Validación del entorno (`config/env.ts` + `validations/env.schema.ts`)
 
@@ -188,10 +236,32 @@ termina con código 1 antes de aceptar la primera petición:
 El esquema vive en `validations/env.schema.ts` (código puro) y `config/env.ts` solo lo aplica, lo que
 permite reutilizarlo en las pruebas sin disparar el `process.exit`.
 
-> **[IMAGEN 4 — pendiente]**
-> **Qué capturar:** `app/backend/src/validations/env.schema.ts` (líneas 1-21).
-> **Archivo sugerido:** `docs/img/04-env-schema.png`
-> **Pie sugerido:** «Figura 4. Esquema de entorno: el servidor falla temprano si una variable es inválida.»
+**`app/backend/src/validations/env.schema.ts` (líneas 1-21)**
+
+```ts
+import { z } from 'zod'
+
+/** Esquema de variables de entorno; se valida al arrancar el servidor. */
+export const envSchema = z.object({
+  DATABASE_URL: z
+    .string({ required_error: 'DATABASE_URL es obligatoria' })
+    .url({ message: 'DATABASE_URL debe ser una URL válida' })
+    .startsWith('mysql://', { message: 'DATABASE_URL debe apuntar a MySQL (mysql://...)' }),
+  SESSION_SECRET: z
+    .string({ required_error: 'SESSION_SECRET es obligatoria' })
+    .min(32, { message: 'SESSION_SECRET debe tener al menos 32 caracteres' }),
+  PORT: z.coerce
+    .number({ invalid_type_error: 'PORT debe ser numérico' })
+    .int({ message: 'PORT debe ser un puerto entero' })
+    .min(1, { message: 'PORT debe estar entre 1 y 65535' })
+    .max(65535, { message: 'PORT debe estar entre 1 y 65535' })
+    .default(3000),
+  NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
+})
+
+export type Env = z.infer<typeof envSchema>
+```
+
 
 #### Cliente de Prisma con traducción de errores (`config/prisma.ts`)
 
@@ -222,10 +292,55 @@ export const prisma = baseClient.$extends({
 
 Gracias a esto, **ninguna capa fuera de la infraestructura de datos conoce los códigos de Prisma**.
 
-> **[IMAGEN 5 — pendiente]**
-> **Qué capturar:** `app/backend/src/config/prisma.ts` y `app/backend/src/config/prismaError.ts` (se pueden montar en una sola captura lado a lado).
-> **Archivo sugerido:** `docs/img/05-prisma-extend.png`
-> **Pie sugerido:** «Figura 5. Extensión del cliente Prisma: los errores del motor se convierten en `HttpError` antes de salir de la capa de datos.»
+**`app/backend/src/config/prisma.ts` (líneas 1-20)**
+
+```ts
+import { PrismaClient } from '@prisma/client'
+import { translatePrismaError } from '@/config/prismaError'
+
+const baseClient = new PrismaClient()
+
+/**
+ * Cliente único de la aplicación: cualquier operación que falle por una restricción
+ * de la base de datos sale de aquí ya convertida en `HttpError`.
+ */
+export const prisma = baseClient.$extends({
+  query: {
+    async $allOperations({ args, query }) {
+      try {
+        return await query(args)
+      } catch (error) {
+        throw translatePrismaError(error)
+      }
+    },
+  },
+})
+```
+
+**`app/backend/src/config/prismaError.ts` (líneas 1-19)**
+
+```ts
+import { Prisma } from '@prisma/client'
+import { HttpError } from '@/utils/httpError'
+
+/**
+ * Traduce los errores conocidos de Prisma a errores de la aplicación, para que
+ * ninguna capa fuera de la infraestructura de datos conozca los códigos del driver.
+ */
+export function translatePrismaError(error: unknown): unknown {
+  if (!(error instanceof Prisma.PrismaClientKnownRequestError)) return error
+
+  // Restricción única (p. ej. número de lámina repetido dentro de un álbum).
+  if (error.code === 'P2002') return new HttpError(409, 'Ya existe un registro con esos datos')
+  if (error.code === 'P2003') {
+    return new HttpError(409, 'La operación contradice una relación existente')
+  }
+  if (error.code === 'P2025') return new HttpError(404, 'Recurso no encontrado')
+
+  return error
+}
+```
+
 
 ### 4.2 Anatomía de una petición (paso a paso)
 
@@ -250,20 +365,119 @@ Tomemos un caso real: **`POST /api/collections/4/stickers`** (pegar una lámina 
 8. Si algo falla en cualquier punto, el error llega al **`errorHandler` central**, que responde JSON
    con el status correcto.
 
-> **[IMAGEN 6 — pendiente]**
-> **Qué capturar:** `app/backend/src/services/collection.service.ts`, método `addSticker` completo (aprox. líneas 96-125).
-> **Archivo sugerido:** `docs/img/06-add-sticker-service.png`
-> **Pie sugerido:** «Figura 6. `addSticker`: autorización, validación de pertenencia, cálculo de cantidad y derivación de repetidas en una sola regla de dominio.»
+**`app/backend/src/services/collection.service.ts` (líneas 98-120)**
+
+```ts
+  async addSticker(collectionId: number, data: AddCollectedStickerInput, userId: number) {
+    const collection = await this.findOwned(
+      collectionId,
+      userId,
+      'No tienes permiso para agregar láminas a esta colección',
+    )
+
+    const sticker = await this.stickers.findById(data.stickerId)
+    if (!sticker) throw new HttpError(404, 'Lámina no encontrada')
+    if (sticker.albumId !== collection.albumId) {
+      throw new HttpError(400, 'La lámina no pertenece al álbum de esta colección')
+    }
+
+    const existing = await this.collections.findCollectedSticker(collectionId, data.stickerId)
+    const quantity = data.quantity ?? (existing ? existing.quantity + 1 : 1)
+    const isDuplicated = data.isDuplicated ?? quantity > 1
+
+    return this.collections.upsertCollectedSticker(collectionId, data.stickerId, {
+      quantity,
+      isDuplicated,
+    })
+  }
+
+```
+
 
 ### 4.3 Rutas: los 25 endpoints
 
 Los routers de `src/routes/` solo importan el controlador del contenedor, montan la ruta y encadenan
 middlewares. No contienen ni una línea de lógica.
 
-> **[IMAGEN 7 — pendiente]**
-> **Qué capturar:** `app/backend/src/routes/collection.routes.ts` completo (líneas 1-74).
-> **Archivo sugerido:** `docs/img/07-routes-collection.png`
-> **Pie sugerido:** «Figura 7. Rutas declarativas: `requireAuth` + `validate` por fuente, sin lógica.»
+**`app/backend/src/routes/collection.routes.ts` (líneas 1-74)**
+
+```ts
+import { Router } from 'express'
+import { collectionController } from '@/config/container'
+import { requireAuth } from '@/middlewares/requireAuth'
+import { validate } from '@/middlewares/validate'
+import {
+  addCollectedStickerSchema,
+  collectionIdParamsSchema,
+  collectionStickerParamsSchema,
+  createCollectionSchema,
+  listCollectionsQuerySchema,
+  updateCollectedStickerSchema,
+  updateCollectionSchema,
+} from '@/validations/collection.schema'
+
+export const collectionRoutes = Router()
+
+collectionRoutes.get('/', validate(listCollectionsQuerySchema, 'query'), collectionController.list)
+collectionRoutes.post(
+  '/',
+  requireAuth,
+  validate(createCollectionSchema, 'body'),
+  collectionController.create,
+)
+
+collectionRoutes.get(
+  '/:id/missing',
+  validate(collectionIdParamsSchema, 'params'),
+  collectionController.missing,
+)
+collectionRoutes.get(
+  '/:id/duplicates',
+  validate(collectionIdParamsSchema, 'params'),
+  collectionController.duplicates,
+)
+
+collectionRoutes.get(
+  '/:id',
+  validate(collectionIdParamsSchema, 'params'),
+  collectionController.getById,
+)
+collectionRoutes.put(
+  '/:id',
+  requireAuth,
+  validate(collectionIdParamsSchema, 'params'),
+  validate(updateCollectionSchema, 'body'),
+  collectionController.update,
+)
+collectionRoutes.delete(
+  '/:id',
+  requireAuth,
+  validate(collectionIdParamsSchema, 'params'),
+  collectionController.delete,
+)
+
+collectionRoutes.post(
+  '/:id/stickers',
+  requireAuth,
+  validate(collectionIdParamsSchema, 'params'),
+  validate(addCollectedStickerSchema, 'body'),
+  collectionController.addSticker,
+)
+collectionRoutes.put(
+  '/:id/stickers/:stickerId',
+  requireAuth,
+  validate(collectionStickerParamsSchema, 'params'),
+  validate(updateCollectedStickerSchema, 'body'),
+  collectionController.updateSticker,
+)
+collectionRoutes.delete(
+  '/:id/stickers/:stickerId',
+  requireAuth,
+  validate(collectionStickerParamsSchema, 'params'),
+  collectionController.removeSticker,
+)
+```
+
 
 | Método | Ruta | Auth | Validación Zod | Descripción |
 |---|---|---|---|---|
@@ -308,10 +522,46 @@ Recibe un esquema Zod y una **fuente** (`body`, `query`, `params` o `file`). Usa
 - Para `file` valida pero **no reemplaza** el objeto de Multer, porque de él se necesitan después
   `filename` y `path`.
 
-> **[IMAGEN 8 — pendiente]**
-> **Qué capturar:** `app/backend/src/middlewares/validate.ts` completo (líneas 1-35).
-> **Archivo sugerido:** `docs/img/08-validate-middleware.png`
-> **Pie sugerido:** «Figura 8. Validación centralizada: una sola forma de producir el error 400 estructurado.»
+**`app/backend/src/middlewares/validate.ts` (líneas 1-35)**
+
+```ts
+import type { NextFunction, Request, Response } from 'express'
+import type { ZodTypeAny } from 'zod'
+import { HttpError } from '@/utils/httpError'
+
+export type ValidationSource = 'body' | 'query' | 'params' | 'file'
+
+export function validate(schema: ZodTypeAny, source: ValidationSource = 'body') {
+  return (req: Request, _res: Response, next: NextFunction) => {
+    const value = source === 'file' ? req.file : req[source]
+    const result = schema.safeParse(value)
+
+    if (!result.success) {
+      return next(
+        new HttpError(400, 'Entrada inválida', {
+          source,
+          fieldErrors: result.error.flatten().fieldErrors,
+          issues: result.error.issues.map((issue) => ({
+            path: issue.path.join('.'),
+            message: issue.message,
+          })),
+        }),
+      )
+    }
+
+    // `req.file` lo construye multer con datos que sí se usan después (filename, path):
+    // se valida pero no se reemplaza por el resultado del parseo.
+    if (source === 'file') {
+      next()
+      return
+    }
+
+    ;(req as unknown as Record<string, unknown>)[source] = result.data
+    next()
+  }
+}
+```
+
 
 #### `requireAuth` — sesión obligatoria
 
@@ -326,10 +576,56 @@ nombre original: así no se puede colar un `.html` o un `.svg` que después se s
 `/uploads`. El `fileFilter` rechaza cualquier MIME fuera de la lista con un `HttpError(400)`, y el
 límite `fileSize` es de 5 MB.
 
-> **[IMAGEN 9 — pendiente]**
-> **Qué capturar:** `app/backend/src/middlewares/upload.ts` completo (líneas 1-48).
-> **Archivo sugerido:** `docs/img/09-upload-middleware.png`
-> **Pie sugerido:** «Figura 9. Subida segura: MIME permitidos, extensión derivada del MIME y límite de 5 MB.»
+**`app/backend/src/middlewares/upload.ts` (líneas 1-45)**
+
+```ts
+import fs from 'fs'
+import path from 'path'
+import multer from 'multer'
+import type { Request } from 'express'
+import { HttpError } from '@/utils/httpError'
+import {
+  ALLOWED_IMAGE_MIME_TYPES,
+  IMAGE_EXTENSION_BY_MIME,
+  MAX_UPLOAD_BYTES,
+  type AllowedImageMime,
+} from '@/validations/upload.schema'
+
+const uploadDir = path.join(process.cwd(), 'uploads')
+if (!fs.existsSync(uploadDir)) {
+  fs.mkdirSync(uploadDir, { recursive: true })
+}
+
+const storage = multer.diskStorage({
+  destination: (_req, _file, cb) => {
+    cb(null, uploadDir)
+  },
+  filename: (_req, file, cb) => {
+    const uniqueSuffix = `${Date.now()}-${Math.round(Math.random() * 1e9)}`
+    // La extensión sale del MIME: el nombre original podría colar un `.html`/`.svg`
+    // que después se serviría desde `/uploads`.
+    const extension = IMAGE_EXTENSION_BY_MIME[file.mimetype as AllowedImageMime]
+    cb(null, `${uniqueSuffix}${extension}`)
+  },
+})
+
+const fileFilter = (_req: Request, file: Express.Multer.File, cb: multer.FileFilterCallback) => {
+  if ((ALLOWED_IMAGE_MIME_TYPES as readonly string[]).includes(file.mimetype)) {
+    cb(null, true)
+    return
+  }
+  cb(new HttpError(400, 'Tipo de archivo no permitido. Solo imágenes (JPEG, PNG, WEBP, GIF)'))
+}
+
+export const uploadMiddleware = multer({
+  storage,
+  limits: {
+    fileSize: MAX_UPLOAD_BYTES,
+  },
+  fileFilter,
+})
+```
+
 
 #### `notFoundHandler` y `errorHandler`
 
@@ -346,10 +642,64 @@ lugar que construye respuestas de error y mantiene siempre la forma
 | Cuerpo demasiado grande (`entity.too.large`) | 413 | `payload_too_large` |
 | Error inesperado | 500 | `internal_error` (sin filtrar el mensaje original) |
 
-> **[IMAGEN 10 — pendiente]**
-> **Qué capturar:** `app/backend/src/middlewares/error.ts` completo (líneas 1-56).
-> **Archivo sugerido:** `docs/img/10-error-handler.png`
-> **Pie sugerido:** «Figura 10. Manejador central de errores: una única forma de responder con error y sin filtrar detalles internos.»
+**`app/backend/src/middlewares/error.ts` (líneas 1-53)**
+
+```ts
+import type { NextFunction, Request, Response } from 'express'
+import multer from 'multer'
+import { HttpError } from '@/utils/httpError'
+
+const CODE_BY_STATUS: Record<number, string> = {
+  400: 'bad_request',
+  401: 'unauthorized',
+  403: 'forbidden',
+  404: 'not_found',
+  409: 'conflict',
+  413: 'payload_too_large',
+  500: 'internal_error',
+}
+
+/**
+ * Middleware central de errores: toda respuesta de error mantiene la forma
+ * `{ error, message, details? }` con el status HTTP correcto.
+ *
+ * Los errores de Prisma los traduce `config/prisma.ts` antes de llegar aquí.
+ */
+export function errorHandler(err: unknown, _req: Request, res: Response, _next: NextFunction) {
+  if (err instanceof HttpError) {
+    return res.status(err.status).json({
+      error: CODE_BY_STATUS[err.status] ?? 'http_error',
+      message: err.message,
+      ...(err.details ? { details: err.details } : {}),
+    })
+  }
+
+  if (err instanceof multer.MulterError) {
+    if (err.code === 'LIMIT_FILE_SIZE') {
+      return res.status(400).json({
+        error: 'file_too_large',
+        message: 'El archivo excede el tamaño máximo permitido de 5MB',
+      })
+    }
+    return res.status(400).json({ error: 'upload_error', message: err.message })
+  }
+
+  // Errores de parseo del body (JSON malformado, payload excesivo) lanzados por express.json().
+  if (err instanceof SyntaxError && 'type' in err && err.type === 'entity.parse.failed') {
+    return res.status(400).json({ error: 'bad_request', message: 'JSON malformado' })
+  }
+
+  if (err instanceof Error && 'type' in err && err.type === 'entity.too.large') {
+    return res
+      .status(413)
+      .json({ error: 'payload_too_large', message: 'Cuerpo de la petición demasiado grande' })
+  }
+
+  console.error(err)
+  return res.status(500).json({ error: 'internal_error', message: 'Error interno del servidor' })
+}
+```
+
 
 ### 4.5 Controllers
 
@@ -361,10 +711,56 @@ Son **clases** con el servicio inyectado por constructor. Cada handler:
   rutas protegidas, y lee `req.session.userId` directamente en las públicas;
 - responde con `200`/`201` y JSON.
 
-> **[IMAGEN 11 — pendiente]**
-> **Qué capturar:** `app/backend/src/controllers/collection.controller.ts` (líneas 1-45), destacando el constructor y `asyncHandler`.
-> **Archivo sugerido:** `docs/img/11-controller.png`
-> **Pie sugerido:** «Figura 11. Controlador: inyección por constructor, `asyncHandler` y respuestas HTTP; ninguna regla de negocio.»
+**`app/backend/src/controllers/collection.controller.ts` (líneas 1-45)**
+
+```ts
+import type { Request, Response } from 'express'
+import type { ICollectionService } from '@/interfaces/collection.service.interface'
+import type {
+  AddCollectedStickerInput,
+  CreateCollectionInput,
+  ListCollectionsQuery,
+  UpdateCollectedStickerInput,
+  UpdateCollectionInput,
+} from '@/validations/collection.schema'
+import { asyncHandler } from '@/utils/asyncHandler'
+import { sessionUserId } from '@/utils/sessionUser'
+
+export class CollectionController {
+  constructor(private readonly collections: ICollectionService) {}
+
+  list = asyncHandler(async (req: Request, res: Response) => {
+    const query = req.query as unknown as ListCollectionsQuery
+    res.json(
+      await this.collections.list({
+        userId: query.userId,
+        isPublic: query.isPublic,
+        currentUserId: req.session.userId,
+      }),
+    )
+  })
+
+  getById = asyncHandler(async (req: Request, res: Response) => {
+    res.json(await this.collections.getById(Number(req.params.id), req.session.userId))
+  })
+
+  create = asyncHandler(async (req: Request, res: Response) => {
+    const collection = await this.collections.create(
+      req.body as CreateCollectionInput,
+      sessionUserId(req),
+    )
+    res.status(201).json(collection)
+  })
+
+  update = asyncHandler(async (req: Request, res: Response) => {
+    const collection = await this.collections.update(
+      Number(req.params.id),
+      req.body as UpdateCollectionInput,
+      sessionUserId(req),
+    )
+    res.json(collection)
+```
+
 
 ### 4.6 Services: dónde viven las reglas
 
@@ -380,10 +776,24 @@ export function assertOwnership(ownerId: number | null, currentUserId: number, m
 
 Consecuencia importante: un recurso **sin dueño** (`userId` nulo) tampoco es mutable por nadie.
 
-> **[IMAGEN 12 — pendiente]**
-> **Qué capturar:** `app/backend/src/services/albumAccess.ts` completo (líneas 1-15).
-> **Archivo sugerido:** `docs/img/12-ownership.png`
-> **Pie sugerido:** «Figura 12. Regla de propiedad reutilizada por álbumes, láminas y colecciones.»
+**`app/backend/src/services/albumAccess.ts` (líneas 1-13)**
+
+```ts
+import { HttpError } from '@/utils/httpError'
+
+/**
+ * Autorización por propiedad: un recurso solo puede mutarlo su dueño.
+ * Los recursos sin dueño (`userId` nulo) quedan protegidos para todos.
+ */
+export function assertOwnership(
+  ownerId: number | null,
+  currentUserId: number,
+  message: string,
+): void {
+  if (ownerId !== currentUserId) throw new HttpError(403, message)
+}
+```
+
 
 #### `AlbumService` y `StickerService`
 
@@ -405,15 +815,63 @@ Consecuencia importante: un recurso **sin dueño** (`userId` nulo) tampoco es mu
 | **Faltantes** | Láminas del álbum menos los ids ya poseídos (diferencia de conjuntos en el servicio) | Reporte de faltantes |
 | **Reporte de repetidas** | Consulta `quantity > 1` **o** `isDuplicated = true`, con la cantidad por lámina | Lista para intercambio |
 
-> **[IMAGEN 13 — pendiente]**
-> **Qué capturar:** `app/backend/src/services/collection.service.ts`, métodos `buildQueryFilter`, `findVisible` y `findOwned` (aprox. líneas 184-205).
-> **Archivo sugerido:** `docs/img/13-visibilidad-propiedad.png`
-> **Pie sugerido:** «Figura 13. Política de visibilidad y de propiedad concentrada en el servicio.»
+**`app/backend/src/services/collection.service.ts` (líneas 185-217)**
 
-> **[IMAGEN 14 — pendiente]**
-> **Qué capturar:** `app/backend/src/services/collection.service.ts`, `computeProgress` y `toSummaryView` (aprox. líneas 26-38).
-> **Archivo sugerido:** `docs/img/14-progreso.png`
-> **Pie sugerido:** «Figura 14. El progreso se calcula una sola vez, en el servidor, y se envía ya resuelto al cliente.»
+```ts
+  private buildQueryFilter(query: ListCollectionsInput): CollectionQueryFilter | null {
+    const isOwnerScope = query.userId !== undefined && query.currentUserId === query.userId
+
+    // Solo el dueño puede listar sus colecciones privadas: para el resto no hay resultados.
+    if (query.isPublic === false && !isOwnerScope) return null
+
+    if (query.userId !== undefined) {
+      if (isOwnerScope && query.isPublic === undefined) return { userId: query.userId }
+      return { userId: query.userId, isPublic: isOwnerScope ? query.isPublic : true }
+    }
+
+    if (query.currentUserId !== undefined) return { visibleTo: query.currentUserId }
+    return { isPublic: true }
+  }
+
+  /** Colección privada visible solo para su dueño. */
+  private async findVisible(id: number, currentUserId?: number) {
+    const collection = await this.collections.findById(id)
+    if (!collection) throw new HttpError(404, 'Colección no encontrada')
+    if (!collection.isPublic && collection.userId !== currentUserId) {
+      throw new HttpError(403, 'Esta colección es privada')
+    }
+    return collection
+  }
+
+  /** Colección que el usuario puede mutar (solo su dueño). */
+  private async findOwned(id: number, userId: number, message: string) {
+    const collection = await this.collections.findById(id)
+    if (!collection) throw new HttpError(404, 'Colección no encontrada')
+    assertOwnership(collection.userId, userId, message)
+    return collection
+  }
+}
+```
+
+
+**`app/backend/src/services/collection.service.ts` (líneas 26-38)**
+
+```ts
+/** Láminas únicas obtenidas frente al total declarado por el álbum. */
+export function computeProgress(collectedCount: number, totalStickers: number): CollectionProgress {
+  return {
+    collectedCount,
+    totalStickers,
+    percentage: totalStickers > 0 ? Math.round((collectedCount / totalStickers) * 100) : 0,
+  }
+}
+
+const toSummaryView = (row: CollectionSummary): CollectionSummaryView => {
+  const { _count, ...collection } = row
+  return { ...collection, progress: computeProgress(_count.stickers, row.album.totalStickers) }
+}
+```
+
 
 ### 4.7 Repositories: la única capa con Prisma
 
@@ -426,10 +884,56 @@ hay reglas de negocio, solo consultas y escrituras. Dos detalles relevantes:
 - La búsqueda de repetidas concentra la condición `quantity > 1 OR isDuplicated = true` en la propia
   consulta.
 
-> **[IMAGEN 15 — pendiente]**
-> **Qué capturar:** `app/backend/src/repositories/collection.repository.ts` (líneas 1-45), destacando `SUMMARY_INCLUDE` y `findSummaries`.
-> **Archivo sugerido:** `docs/img/15-repository.png`
-> **Pie sugerido:** «Figura 15. Repositorio: consultas tipadas con Prisma y `include` ajustado a la respuesta.»
+**`app/backend/src/repositories/collection.repository.ts` (líneas 1-45)**
+
+```ts
+import { prisma } from '@/config/prisma'
+import type { Prisma } from '@prisma/client'
+import type {
+  CollectionQueryFilter,
+  CreateCollectionData,
+  ICollectionRepository,
+  UpdateCollectionData,
+} from '@/interfaces/collection.repository.interface'
+
+const SUMMARY_INCLUDE = {
+  album: { select: { id: true, name: true, totalStickers: true, imageUrl: true } },
+  user: { select: { id: true, username: true } },
+  _count: { select: { stickers: true } },
+} as const
+
+const DETAIL_INCLUDE = {
+  album: true,
+  user: { select: { id: true, username: true } },
+  stickers: { include: { sticker: true }, orderBy: { sticker: { number: 'asc' } } },
+} as const
+
+export class PrismaCollectionRepository implements ICollectionRepository {
+  findSummaries(filter: CollectionQueryFilter) {
+    const where: Prisma.CollectionWhereInput = {}
+
+    if (filter.userId !== undefined) where.userId = filter.userId
+    if (filter.isPublic !== undefined) where.isPublic = filter.isPublic
+    if (filter.visibleTo !== undefined) {
+      where.OR = [{ isPublic: true }, { userId: filter.visibleTo }]
+    }
+
+    return prisma.collection.findMany({
+      where,
+      include: SUMMARY_INCLUDE,
+      orderBy: { createdAt: 'desc' },
+    })
+  }
+
+  findById(id: number) {
+    return prisma.collection.findUnique({ where: { id } })
+  }
+
+  findDetailedById(id: number) {
+    return prisma.collection.findUnique({
+      where: { id },
+```
+
 
 ### 4.8 Interfaces y dependencias
 
@@ -451,10 +955,34 @@ Esto produce tres beneficios concretos: los controladores dependen de **contrato
 composición queda en un solo archivo, y las pruebas pueden sustituir los repositorios por dobles en
 memoria (el compilador garantiza que el doble es un sustituto válido).
 
-> **[IMAGEN 16 — pendiente]**
-> **Qué capturar:** `app/backend/src/interfaces/collection.service.interface.ts` (líneas 40-62), mostrando la interfaz.
-> **Archivo sugerido:** `docs/img/16-interfaz-servicio.png`
-> **Pie sugerido:** «Figura 16. Contrato del servicio de colecciones: la capa HTTP depende de esta interfaz, no de la implementación.»
+**`app/backend/src/interfaces/collection.service.interface.ts` (líneas 40-62)**
+
+```ts
+
+export interface ICollectionService {
+  list(query: ListCollectionsInput): Promise<CollectionSummaryView[]>
+  /** Lanza 403 si la colección es privada y no pertenece al solicitante. */
+  getById(id: number, currentUserId?: number): Promise<CollectionDetailView>
+  create(data: CreateCollectionInput, userId: number): Promise<CollectionSummaryView>
+  update(id: number, data: UpdateCollectionInput, userId: number): Promise<CollectionSummaryView>
+  delete(id: number, userId: number): Promise<void>
+  addSticker(
+    collectionId: number,
+    data: AddCollectedStickerInput,
+    userId: number,
+  ): Promise<CollectedStickerWithSticker>
+  updateSticker(
+    collectionId: number,
+    stickerId: number,
+    data: UpdateCollectedStickerInput,
+    userId: number,
+  ): Promise<CollectedStickerWithSticker>
+  removeSticker(collectionId: number, stickerId: number, userId: number): Promise<void>
+  missingStickers(collectionId: number, currentUserId?: number): Promise<Sticker[]>
+  duplicatedStickers(collectionId: number, currentUserId?: number): Promise<DuplicatedStickerView[]>
+}
+```
+
 
 ### 4.9 Modelo de datos
 
@@ -477,10 +1005,91 @@ erDiagram
 | `CollectedSticker` | `collectionId`, `stickerId`, `quantity`, `isDuplicated` | `@@unique([collectionId, stickerId])` → una fila por lámina |
 | `Session` | `sid`, `data`, `expiresAt` (+ índice) | Persistencia de `express-session` |
 
-> **[IMAGEN 17 — pendiente]**
-> **Qué capturar:** `app/backend/prisma/schema.prisma` completo (líneas 1-92).
-> **Archivo sugerido:** `docs/img/17-schema-prisma.png`
-> **Pie sugerido:** «Figura 17. Modelo de datos: seis modelos, con las claves únicas que sostienen las reglas de conflicto.»
+**`app/backend/prisma/schema.prisma` (líneas 1-80)**
+
+```prisma
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id          Int          @id @default(autoincrement())
+  username    String       @unique
+  email       String       @unique
+  password    String
+  albums      Album[]
+  collections Collection[]
+  createdAt   DateTime     @default(now())
+}
+
+model Album {
+  id            Int          @id @default(autoincrement())
+  name          String
+  description   String?
+  imageUrl      String?   // portada
+  releaseDate   DateTime? // fecha de lanzamiento
+  stickerType   String?   // tipo de láminas del álbum
+  totalStickers Int
+  userId        Int?
+  user          User?        @relation(fields: [userId], references: [id], onDelete: SetNull)
+  stickers      Sticker[]
+  collections   Collection[]
+  createdAt     DateTime     @default(now())
+}
+
+model Sticker {
+  id                Int                @id @default(autoincrement())
+  number            Int
+  name              String
+  imageUrl          String?  // foto opcional
+  type              String?  // categoría de la lámina
+  albumId           Int
+  album             Album              @relation(fields: [albumId], references: [id], onDelete: Cascade)
+  collectedStickers CollectedSticker[]
+  createdAt         DateTime           @default(now())
+
+  @@unique([albumId, number])
+}
+
+model Collection {
+  id        Int                @id @default(autoincrement())
+  name      String
+  isPublic  Boolean            @default(false)
+  userId    Int
+  user      User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  albumId   Int
+  album     Album              @relation(fields: [albumId], references: [id], onDelete: Cascade)
+  stickers  CollectedSticker[]
+  createdAt DateTime           @default(now())
+}
+
+model CollectedSticker {
+  id           Int        @id @default(autoincrement())
+  collectionId Int
+  collection   Collection @relation(fields: [collectionId], references: [id], onDelete: Cascade)
+  stickerId    Int
+  sticker      Sticker    @relation(fields: [stickerId], references: [id], onDelete: Cascade)
+  quantity     Int        @default(1)
+  isDuplicated Boolean    @default(false)
+
+  @@unique([collectionId, stickerId])
+}
+
+/// Sesiones de express-session: permiten reiniciar el servidor sin perder sesiones.
+model Session {
+  sid       String   @id @db.VarChar(128)
+  data      String   @db.Text
+  expiresAt DateTime
+
+  @@index([expiresAt])
+}
+```
+
 
 ### 4.10 Sesiones y autenticación
 
@@ -493,15 +1102,120 @@ erDiagram
   sesiones** de los usuarios. Implementa `get`, `set`, `destroy`, `touch` y `clear`, y descarta las
   sesiones caducadas al leerlas.
 
-> **[IMAGEN 18 — pendiente]**
-> **Qué capturar:** `app/backend/src/config/sessionStore.ts` (líneas 1-59), destacando la clase y el TTL.
-> **Archivo sugerido:** `docs/img/18-session-store.png`
-> **Pie sugerido:** «Figura 18. Store de sesiones en MySQL: la sesión sobrevive a los reinicios del servidor.»
+**`app/backend/src/config/sessionStore.ts` (líneas 1-59)**
 
-> **[IMAGEN 19 — pendiente]**
-> **Qué capturar:** `app/backend/src/services/auth.service.ts` (líneas 1-44): `SALT_ROUNDS`, `toPublicUser` y los tres métodos.
-> **Archivo sugerido:** `docs/img/19-auth-service.png`
-> **Pie sugerido:** «Figura 19. Autenticación: hash con bcrypt, comparación en el login y saneado de la respuesta.»
+```ts
+import session from 'express-session'
+import type { ISessionRepository } from '@/interfaces/session.repository.interface'
+
+/** Vigencia de la cookie de sesión y de su fila en la base de datos. */
+export const SESSION_TTL_MS = 7 * 24 * 60 * 60 * 1000
+
+/**
+ * Store de sesiones respaldado por MySQL a través de Prisma, para que las
+ * sesiones sobrevivan a los reinicios del servidor.
+ */
+export class PrismaSessionStore extends session.Store {
+  constructor(private readonly sessions: ISessionRepository) {
+    super()
+  }
+
+  get(sid: string, callback: (err: unknown, session?: session.SessionData | null) => void): void {
+    this.sessions
+      .find(sid)
+      .then((row) => {
+        if (!row) return callback(null, null)
+
+        if (row.expiresAt.getTime() <= Date.now()) {
+          void this.sessions.delete(sid).catch(() => undefined)
+          return callback(null, null)
+        }
+
+        callback(null, JSON.parse(row.data) as session.SessionData)
+      })
+      .catch((error: unknown) => callback(error))
+  }
+
+  set(sid: string, data: session.SessionData, callback?: (err?: unknown) => void): void {
+    const expires = data.cookie?.expires
+    const expiresAt = expires ? new Date(expires) : new Date(Date.now() + SESSION_TTL_MS)
+
+    this.sessions
+      .save(sid, JSON.stringify(data), expiresAt)
+      .then(() => callback?.())
+      .catch((error: unknown) => callback?.(error))
+  }
+
+  destroy(sid: string, callback?: (err?: unknown) => void): void {
+    this.sessions
+      .delete(sid)
+      .then(() => callback?.())
+      .catch((error: unknown) => callback?.(error))
+  }
+
+  touch(sid: string, data: session.SessionData, callback?: (err?: unknown) => void): void {
+    this.set(sid, data, callback)
+  }
+
+  clear(callback?: (err?: unknown) => void): void {
+    this.sessions
+      .deleteExpired(new Date())
+      .then(() => callback?.())
+      .catch((error: unknown) => callback?.(error))
+  }
+}
+```
+
+
+**`app/backend/src/services/auth.service.ts` (líneas 1-44)**
+
+```ts
+import bcrypt from 'bcryptjs'
+import type { User } from '@prisma/client'
+import type { IAuthService, PublicUser } from '@/interfaces/auth.service.interface'
+import type { IUserRepository } from '@/interfaces/user.repository.interface'
+import type { LoginInput, RegisterInput } from '@/validations/auth.schema'
+import { HttpError } from '@/utils/httpError'
+
+const SALT_ROUNDS = 10
+
+const toPublicUser = (user: User): PublicUser => ({
+  id: user.id,
+  username: user.username,
+  email: user.email,
+})
+
+export class AuthService implements IAuthService {
+  constructor(private readonly users: IUserRepository) {}
+
+  async register(data: RegisterInput): Promise<PublicUser> {
+    if (await this.users.findByEmail(data.email)) {
+      throw new HttpError(409, 'El email ya está registrado')
+    }
+    if (await this.users.findByUsername(data.username)) {
+      throw new HttpError(409, 'El nombre de usuario ya está en uso')
+    }
+
+    const password = await bcrypt.hash(data.password, SALT_ROUNDS)
+    return toPublicUser(await this.users.create({ ...data, password }))
+  }
+
+  async login(data: LoginInput): Promise<PublicUser> {
+    const user = await this.users.findByEmail(data.email)
+    if (!user || !(await bcrypt.compare(data.password, user.password))) {
+      throw new HttpError(401, 'Credenciales inválidas')
+    }
+    return toPublicUser(user)
+  }
+
+  async me(userId: number): Promise<PublicUser> {
+    const user = await this.users.findById(userId)
+    if (!user) throw new HttpError(401, 'No autenticado')
+    return toPublicUser(user)
+  }
+}
+```
+
 
 ### 4.11 Validación con Zod (backend)
 
@@ -531,10 +1245,55 @@ Decisiones destacables:
 - **Actualizaciones**: `nonEmptyUpdate` obliga a enviar al menos un campo (un `PUT {}` responde 400).
 - **Errores**: todos los mensajes de validación se ven en español y con la ruta del campo.
 
-> **[IMAGEN 20 — pendiente]**
-> **Qué capturar:** `app/backend/src/validations/common.ts` completo (líneas 1-45).
-> **Archivo sugerido:** `docs/img/20-validaciones-comunes.png`
-> **Pie sugerido:** «Figura 20. Helpers de validación reutilizados por todos los esquemas.»
+**`app/backend/src/validations/common.ts` (líneas 1-44)**
+
+```ts
+import { z } from 'zod'
+
+/** Máximo de un INT de MySQL: evita desbordes que Prisma reportaría como error 500. */
+export const MAX_INT_32 = 2_147_483_647
+
+/** Id de ruta: solo dígitos decimales, dentro del rango de INT de MySQL. */
+export const idParam = z
+  .string({ invalid_type_error: 'Debe ser un id numérico' })
+  .regex(/^\d+$/, { message: 'Debe ser un id numérico' })
+  .transform(Number)
+  .refine((value) => value >= 1 && value <= MAX_INT_32, {
+    message: `El id debe estar entre 1 y ${MAX_INT_32}`,
+  })
+
+/** Entero positivo con cota superior, para ids y contadores del body. */
+export const positiveInt = z.number().int().positive().max(MAX_INT_32)
+
+/** Texto obligatorio sin espacios sobrantes. */
+export const requiredText = (max: number) =>
+  z.string().trim().min(1, { message: 'Este campo es obligatorio' }).max(max)
+
+/** Texto opcional sin espacios sobrantes. */
+export const optionalText = (max: number) => z.string().trim().max(max).optional()
+
+/**
+ * Imagen: ruta servida por el propio backend (`/uploads/...`) o URL http(s).
+ * Rechaza esquemas peligrosos como `javascript:` o `data:`.
+ */
+export const imageUrlField = z
+  .string()
+  .trim()
+  .max(500)
+  .refine((value) => /^\/uploads\/[\w.-]+$/.test(value) || /^https?:\/\//.test(value), {
+    message: 'Debe ser una ruta /uploads/... o una URL http(s)',
+  })
+
+/** Fecha opcional; acepta `null` explícito para limpiar el valor. */
+export const nullableDate = z.union([z.null(), z.coerce.date()])
+
+/** Cuerpo de actualización: exige al menos un campo para no aceptar no-ops. */
+export const nonEmptyUpdate = <T extends z.ZodObject<z.ZodRawShape>>(schema: T) =>
+  schema.refine((data) => Object.keys(data).length > 0, {
+    message: 'Debe enviar al menos un campo para actualizar',
+  })
+```
+
 
 ### 4.12 El seed (datos de demostración)
 
@@ -571,10 +1330,42 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
 </AuthProvider>
 ```
 
-> **[IMAGEN 21 — pendiente]**
-> **Qué capturar:** `app/frontend/src/App.tsx` y `src/main.tsx` (una captura con ambos).
-> **Archivo sugerido:** `docs/img/21-frontend-entry.png`
-> **Pie sugerido:** «Figura 21. Composición del frontend: Router → AuthProvider → Layout → rutas.»
+**`app/frontend/src/App.tsx` (líneas 1-13)**
+
+```tsx
+import { AuthProvider } from '@/context/AuthContext'
+import { Layout } from '@/components/Layout'
+import { AppRoutes } from '@/routes'
+
+export default function App() {
+  return (
+    <AuthProvider>
+      <Layout>
+        <AppRoutes />
+      </Layout>
+    </AuthProvider>
+  )
+}
+```
+
+**`app/frontend/src/main.tsx` (líneas 1-13)**
+
+```tsx
+import React from 'react'
+import ReactDOM from 'react-dom/client'
+import { BrowserRouter } from 'react-router-dom'
+import App from './App'
+import './index.css'
+
+ReactDOM.createRoot(document.getElementById('root')!).render(
+  <React.StrictMode>
+    <BrowserRouter>
+      <App />
+    </BrowserRouter>
+  </React.StrictMode>,
+)
+```
+
 
 ### 5.2 Rutas y protección
 
@@ -592,10 +1383,34 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
 `RequireAuth` (`src/routes/RequireAuth.tsx`) envuelve las rutas privadas: mientras se comprueba la
 sesión muestra un aviso de carga, y si no hay usuario redirige a `/login`.
 
-> **[IMAGEN 22 — pendiente]**
-> **Qué capturar:** `app/frontend/src/routes/RequireAuth.tsx` completo (líneas 1-25).
-> **Archivo sugerido:** `docs/img/22-require-auth.png`
-> **Pie sugerido:** «Figura 22. Guarda de ruta: sin sesión no se renderiza la vista protegida.»
+**`app/frontend/src/routes/RequireAuth.tsx` (líneas 1-23)**
+
+```tsx
+import { Navigate, Outlet } from 'react-router-dom'
+import { useAuth } from '@/context/AuthContext'
+
+export function RequireAuth() {
+  const { user, loading } = useAuth()
+
+  if (loading) {
+    return (
+      <div className="py-24 text-center">
+        <div className="inline-block h-8 w-8 animate-spin rounded-full border-4 border-amber-400 border-t-transparent" />
+        <p className="mt-3 text-xs font-bold tracking-widest text-slate-400">
+          VERIFICANDO SESIÓN...
+        </p>
+      </div>
+    )
+  }
+
+  if (!user) {
+    return <Navigate to="/login" replace />
+  }
+
+  return <Outlet />
+}
+```
+
 
 ### 5.3 Estado de sesión: `AuthContext`
 
@@ -606,10 +1421,71 @@ sesión muestra un aviso de carga, y si no hay usuario redirige a `/login`.
 - `logout` destruye la sesión en el servidor y limpia el estado local;
 - los componentes consumen la sesión con el hook `useAuth()`.
 
-> **[IMAGEN 23 — pendiente]**
-> **Qué capturar:** `app/frontend/src/context/AuthContext.tsx` (líneas 1-60).
-> **Archivo sugerido:** `docs/img/23-auth-context.png`
-> **Pie sugerido:** «Figura 23. Contexto de autenticación: la sesión vive en un único lugar y se recupera al recargar.»
+**`app/frontend/src/context/AuthContext.tsx` (líneas 1-60)**
+
+```tsx
+import { createContext, useContext, useEffect, useState, type ReactNode } from 'react'
+import { api } from '@/services/api'
+import type { User } from '@/types'
+
+interface AuthContextType {
+  user: User | null
+  loading: boolean
+  login: (email: string, password: string) => Promise<void>
+  register: (username: string, email: string, password: string) => Promise<void>
+  logout: () => Promise<void>
+  refreshUser: () => Promise<void>
+}
+
+const AuthContext = createContext<AuthContextType | undefined>(undefined)
+
+export function AuthProvider({ children }: { children: ReactNode }) {
+  const [user, setUser] = useState<User | null>(null)
+  const [loading, setLoading] = useState(true)
+
+  const refreshUser = async () => {
+    try {
+      const data = await api<User>('/auth/me')
+      setUser(data)
+    } catch {
+      setUser(null)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    refreshUser()
+  }, [])
+
+  const login = async (email: string, password: string) => {
+    const data = await api<User>('/auth/login', {
+      method: 'POST',
+      body: JSON.stringify({ email, password }),
+    })
+    setUser(data)
+  }
+
+  const register = async (username: string, email: string, password: string) => {
+    const data = await api<User>('/auth/register', {
+      method: 'POST',
+      body: JSON.stringify({ username, email, password }),
+    })
+    setUser(data)
+  }
+
+  const logout = async () => {
+    await api('/auth/logout', { method: 'POST' })
+    setUser(null)
+  }
+
+  return (
+    <AuthContext.Provider value={{ user, loading, login, register, logout, refreshUser }}>
+      {children}
+    </AuthContext.Provider>
+  )
+```
+
 
 ### 5.4 Cliente HTTP: `src/services/api.ts`
 
@@ -621,10 +1497,79 @@ Un único envoltorio de `fetch` centraliza el acceso a la API:
 - dos utilidades para formularios: `getFieldErrors(err)` (un mensaje por campo, con la clave `_form`
   para errores generales) y `getIssues(err)` (mensajes con su ruta, útil en la carga masiva).
 
-> **[IMAGEN 24 — pendiente]**
-> **Qué capturar:** `app/frontend/src/services/api.ts` (líneas 1-30 (tipos de error) y 55-87 (función `api`)).
-> **Archivo sugerido:** `docs/img/24-api-client.png`
-> **Pie sugerido:** «Figura 24. Cliente HTTP: `credentials: 'include'` y errores tipados con su detalle.»
+**`app/frontend/src/services/api.ts` (líneas 1-30)**
+
+```ts
+export interface ApiIssue {
+  path: string
+  message: string
+}
+
+/** Detalle de error devuelto por el backend: `{ error, message, details }`. */
+export interface ApiErrorDetails {
+  source?: 'body' | 'query' | 'params' | 'file'
+  fieldErrors?: Record<string, string[]>
+  issues?: ApiIssue[]
+  [key: string]: unknown
+}
+
+interface ApiErrorBody {
+  error?: string
+  message?: string
+  details?: ApiErrorDetails
+}
+
+export class ApiError extends Error {
+  constructor(
+    public readonly status: number,
+    message: string,
+    public readonly code: string,
+    public readonly details?: ApiErrorDetails,
+  ) {
+    super(message)
+    this.name = 'ApiError'
+  }
+}
+```
+
+**`app/frontend/src/services/api.ts` (líneas 55-87)**
+
+```ts
+  }
+
+  const firstIssue = getIssues(err)[0]
+  if (firstIssue) return { [firstIssue.path || '_form']: firstIssue.message }
+  return {}
+}
+
+export async function api<T>(path: string, init?: RequestInit): Promise<T> {
+  const isFormData = init?.body instanceof FormData
+  const headers = new Headers(init?.headers)
+
+  if (!isFormData && !headers.has('Content-Type') && init?.method && init.method !== 'GET') {
+    headers.set('Content-Type', 'application/json')
+  }
+
+  const res = await fetch(`/api${path}`, {
+    credentials: 'include',
+    ...init,
+    headers,
+  })
+
+  if (!res.ok) {
+    const body = (await res.json().catch(() => null)) as ApiErrorBody | null
+    throw new ApiError(
+      res.status,
+      body?.message ?? `Error ${res.status}`,
+      body?.error ?? 'http_error',
+      body?.details,
+    )
+  }
+
+  return res.json() as Promise<T>
+}
+```
+
 
 ### 5.5 Validación en el cliente
 
@@ -645,15 +1590,73 @@ Regla de trabajo: **el cliente valida para dar buena experiencia; el servidor va
 autoridad**. Por eso las páginas muestran también los errores que devuelve la API
 (`getFieldErrors`).
 
-> **[IMAGEN 25 — pendiente]**
-> **Qué capturar:** `app/frontend/src/validations/collection.schema.ts` completo (líneas 1-30).
-> **Archivo sugerido:** `docs/img/25-validaciones-cliente.png`
-> **Pie sugerido:** «Figura 25. Espejo en el cliente: mismos límites que el servidor para avisar antes de enviar.»
+**`app/frontend/src/validations/collection.schema.ts` (líneas 1-37)**
 
-> **[IMAGEN 26 — pendiente]**
-> **Qué capturar:** `app/frontend/src/pages/Register.tsx`, el bloque de `safeParse` y el pintado de errores inline (aprox. líneas 30-60).
-> **Archivo sugerido:** `docs/img/26-validacion-inline.png`
-> **Pie sugerido:** «Figura 26. Validación en el formulario con mensajes bajo cada campo.»
+```ts
+// Espejo de app/backend/src/validations/collection.schema.ts: mantén los límites sincronizados.
+// El cliente no valida params ni query (los construye desde su propia sesión y literales);
+// el servidor los valida con collectionIdParamsSchema y listCollectionsQuerySchema.
+import { z } from 'zod'
+import { nonEmptyUpdate, positiveInt, requiredText } from '@/validations/common'
+
+export const createCollectionSchema = z.object({
+  name: requiredText(100),
+  albumId: positiveInt,
+  isPublic: z.boolean().optional().default(false),
+})
+
+export const updateCollectionSchema = nonEmptyUpdate(
+  z.object({
+    name: requiredText(100).optional(),
+    isPublic: z.boolean().optional(),
+  }),
+)
+
+export const addCollectedStickerSchema = z.object({
+  stickerId: positiveInt,
+  quantity: positiveInt.optional(),
+  // La UI no lo envía: el servidor deriva `isDuplicated` de la cantidad.
+  isDuplicated: z.boolean().optional(),
+})
+
+export const updateCollectedStickerSchema = nonEmptyUpdate(
+  z.object({
+    quantity: positiveInt.optional(),
+    isDuplicated: z.boolean().optional(),
+  }),
+)
+
+export type CreateCollectionInput = z.infer<typeof createCollectionSchema>
+export type UpdateCollectionInput = z.infer<typeof updateCollectionSchema>
+export type AddCollectedStickerInput = z.infer<typeof addCollectedStickerSchema>
+export type UpdateCollectedStickerInput = z.infer<typeof updateCollectedStickerSchema>
+```
+
+
+**`app/frontend/src/pages/Register.tsx` (líneas 30-48)**
+
+```tsx
+  const handleSubmit = async (e: FormEvent) => {
+    e.preventDefault()
+    setGeneralError(null)
+    setFieldErrors({})
+
+    const result = registerSchema.safeParse({ username, email, password })
+    if (!result.success) {
+      setFieldErrors(zodFieldErrors(result.error))
+      return
+    }
+
+    setLoading(true)
+    try {
+      await register(result.data.username, result.data.email, result.data.password)
+      navigate('/albums')
+    } catch (err: unknown) {
+      const { fields, form } = serverErrors(err, 'Error al registrarse')
+      setFieldErrors(fields)
+      setGeneralError(form)
+```
+
 
 ### 5.6 Las páginas, una por una
 
@@ -675,10 +1678,30 @@ cambiar visibilidad) se renderizan **solo** cuando el recurso pertenece al usuar
 colecciones muestran una insignia `PÚBLICA`/`PRIVADA`. Aun así, el servidor vuelve a comprobar la
 propiedad y la visibilidad en cada petición: la interfaz es una comodidad, no un control de seguridad.
 
-> **[IMAGEN 27 — pendiente]**
-> **Qué capturar:** `app/frontend/src/pages/CollectionDetail.tsx`, el bloque de acciones del dueño (`{isOwner && (…)}`) con "Pegar lámina", "Renombrar", visibilidad y eliminar.
-> **Archivo sugerido:** `docs/img/27-ui-autoria.png`
-> **Pie sugerido:** «Figura 27. Interfaz condicionada por autoría: las acciones solo existen para el dueño.»
+**`app/frontend/src/pages/CollectionDetail.tsx` (líneas 199-217)**
+
+```tsx
+  const handleTogglePublic = async () => {
+    if (!collection) return
+
+    const parsed = updateCollectionSchema.safeParse({ isPublic: !collection.isPublic })
+    if (!parsed.success) {
+      setError(zodFieldErrors(parsed.error).isPublic ?? 'Visibilidad no válida')
+      return
+    }
+
+    try {
+      const updated = await api<CollectionSummary>(`/collections/${id}`, {
+        method: 'PUT',
+        body: JSON.stringify(parsed.data),
+      })
+      setCollection((prev) => (prev ? { ...prev, isPublic: updated.isPublic } : null))
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Error al cambiar visibilidad')
+    }
+  }
+```
+
 
 ### 5.7 Estilos y sistema visual
 
@@ -688,10 +1711,39 @@ propiedad y la visibilidad en cada petición: la interfaz es una comodidad, no u
 - Estilos globales en `src/index.css` (directivas de Tailwind y barra de desplazamiento).
 - El componente `StickDexLogo` dibuja el isotipo (lámina con esquina despegada) en SVG.
 
-> **[IMAGEN 28 — pendiente]**
-> **Qué capturar:** `app/frontend/tailwind.config.js` (líneas 1-28): tema, colores y sombras.
-> **Archivo sugerido:** `docs/img/28-tema-tailwind.png`
-> **Pie sugerido:** «Figura 28. Tema visual: paleta "binder", tipografías y sombras propias.»
+**`app/frontend/tailwind.config.js` (líneas 1-28)**
+
+```js
+/** @type {import('tailwindcss').Config} */
+export default {
+  content: ['./index.html', './src/**/*.{ts,tsx}'],
+  theme: {
+    extend: {
+      fontFamily: {
+        sans: ['"Plus Jakarta Sans"', 'system-ui', 'sans-serif'],
+        display: ['Outfit', 'system-ui', 'sans-serif'],
+      },
+      colors: {
+        binder: {
+          950: '#070A11',
+          900: '#0B0F19',
+          800: '#131B2B',
+          700: '#1C263D',
+          600: '#273554',
+          500: '#384B75',
+        },
+      },
+      boxShadow: {
+        card: '0 8px 24px -4px rgba(0, 0, 0, 0.5)',
+        'card-hover': '0 20px 35px -6px rgba(99, 102, 241, 0.25)',
+        foil: '0 0 25px 2px rgba(245, 158, 11, 0.3)',
+      },
+    },
+  },
+  plugins: [],
+}
+```
+
 
 ### 5.8 Proxy de desarrollo y estáticos
 
@@ -712,10 +1764,37 @@ server: {
 Así el navegador solo habla con `http://127.0.0.1:5173` (sin CORS) y las imágenes subidas
 (`/uploads/...`) se sirven desde el backend.
 
-> **[IMAGEN 29 — pendiente]**
-> **Qué capturar:** `app/frontend/vite.config.ts` completo (líneas 1-26).
-> **Archivo sugerido:** `docs/img/29-vite-proxy.png`
-> **Pie sugerido:** «Figura 29. Alias y proxy de desarrollo: la SPA consume la API como si fuera del mismo origen.»
+**`app/frontend/vite.config.ts` (líneas 1-26)**
+
+```ts
+import { fileURLToPath } from 'node:url'
+import { defineConfig } from 'vite'
+import react from '@vitejs/plugin-react'
+
+export default defineConfig({
+  plugins: [react()],
+  resolve: {
+    alias: {
+      '@': fileURLToPath(new URL('./src', import.meta.url)),
+    },
+  },
+  server: {
+    port: 5173,
+    host: '127.0.0.1',
+    proxy: {
+      '/api': {
+        target: 'http://127.0.0.1:3000',
+        changeOrigin: true,
+      },
+      '/uploads': {
+        target: 'http://127.0.0.1:3000',
+        changeOrigin: true,
+      },
+    },
+  },
+})
+```
+
 
 ---
 
@@ -731,10 +1810,63 @@ Así el navegador solo habla con `http://127.0.0.1:5173` (sin CORS) y las imáge
 4. En la ficha del álbum añade láminas una a una o por **carga masiva**; si dos láminas comparten
    número aparece el error de fila en el formulario y, si llega al servidor, responde **409**.
 
-> **[IMAGEN 30 — pendiente]**
-> **Qué capturar:** pantalla real de `/albums/:id` con el catálogo de láminas y el modal de carga masiva abierto.
-> **Archivo sugerido:** `docs/img/30-ui-album-detalle.png`
-> **Pie sugerido:** «Figura 30. Detalle del álbum con su catálogo y la carga masiva.»
+**`app/frontend/src/pages/AlbumDetail.tsx` (líneas 160-211)**
+
+```tsx
+  const handleBulkCreate = async (e: FormEvent) => {
+    e.preventDefault()
+    if (!album) return
+    setBulkIssues([])
+
+    // Cada línea no vacía del textarea es una lámina con formato `Número, Nombre, Tipo`.
+    const rows: ParsedBulkRow[] = []
+    bulkInput.split('\n').forEach((raw, index) => {
+      if (raw.trim() === '') return
+      const parts = raw.split(/[,;\t]/).map((part) => part.trim())
+      rows.push({
+        line: index + 1,
+        sticker: { number: Number(parts[0]), name: parts[1] ?? '', type: parts[2] || undefined },
+      })
+    })
+
+    const result = createStickersBulkSchema.safeParse({ stickers: rows.map((row) => row.sticker) })
+    if (!result.success) {
+      setBulkIssues(
+        result.error.issues.map((issue) => ({
+          line: rows[Number(issue.path[1])]?.line ?? null,
+          message: issue.message,
+        })),
+      )
+      return
+    }
+
+    setSubmitting(true)
+    try {
+      await api(`/albums/${album.id}/stickers/bulk`, {
+        method: 'POST',
+        body: JSON.stringify(result.data),
+      })
+
+      setShowBulkModal(false)
+      setBulkInput('')
+      setBulkIssues([])
+      await loadAlbum()
+    } catch (err: unknown) {
+      const apiIssues = getIssues(err)
+      setBulkIssues(
+        apiIssues.length > 0
+          ? apiIssues.map((issue) => ({
+              line: rows[Number(issue.path.split('.')[1])]?.line ?? null,
+              message: issue.message,
+            }))
+          : [{ line: null, message: err instanceof Error ? err.message : 'Error en carga masiva' }],
+      )
+    } finally {
+      setSubmitting(false)
+    }
+  }
+```
+
 
 ### 6.2 Coleccionar, repetir y consultar reportes
 
@@ -746,10 +1878,35 @@ Así el navegador solo habla con `http://127.0.0.1:5173` (sin CORS) y las imáge
 4. Las pestañas "Faltantes" y "Repetidas" llaman a los endpoints de reporte; las repetidas se
    muestran con la cantidad y la insignia `+N para cambio`.
 
-> **[IMAGEN 31 — pendiente]**
-> **Qué capturar:** pantalla de `/collections/:id` con la barra de progreso y la pestaña "Repetidas".
-> **Archivo sugerido:** `docs/img/31-ui-coleccion.png`
-> **Pie sugerido:** «Figura 31. Detalle de colección: progreso calculado en el servidor y repetidas listas para intercambio.»
+**`app/frontend/src/pages/CollectionDetail.tsx` (líneas 164-187)**
+
+```tsx
+  const handleUpdateQuantity = async (stickerId: number, currentQty: number, delta: number) => {
+    const newQty = currentQty + delta
+
+    if (newQty <= 0) {
+      await handleRemoveSticker(stickerId)
+      return
+    }
+
+    const parsed = updateCollectedStickerSchema.safeParse({ quantity: newQty })
+    if (!parsed.success) {
+      setError(zodFieldErrors(parsed.error).quantity ?? 'Cantidad no válida')
+      return
+    }
+
+    try {
+      await api(`/collections/${id}/stickers/${stickerId}`, {
+        method: 'PUT',
+        body: JSON.stringify(parsed.data),
+      })
+      await loadAll()
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Error al actualizar cantidad')
+    }
+  }
+```
+
 
 ### 6.3 Privacidad y autorización (qué ve y qué puede hacer cada quien)
 
@@ -762,10 +1919,34 @@ Así el navegador solo habla con `http://127.0.0.1:5173` (sin CORS) y las imáge
 | Usuario B pide `?isPublic=false` | Lista vacía (no puede listar privadas ajenas) | `buildQueryFilter` |
 | Anónimo llama a una ruta de escritura | **401** | `requireAuth` |
 
-> **[IMAGEN 32 — pendiente]**
-> **Qué capturar:** terminal con la respuesta `403` (o la captura de los tests) al intentar modificar un recurso ajeno.
-> **Archivo sugerido:** `docs/img/32-403-propiedad.png`
-> **Pie sugerido:** «Figura 32. Autorización por propiedad: la comprobación ocurre siempre en el servidor.»
+**`app/backend/tests/catalog.service.test.ts` (líneas 83-105)**
+
+```ts
+  it('devuelve 403 al modificar o borrar el álbum de otro usuario', async () => {
+    await expectHttpError(
+      albumService.update(2, { name: 'Hackeado' }, OWNER),
+      403,
+      'No tienes permiso para modificar este álbum',
+    )
+    await expectHttpError(
+      albumService.delete(2, OWNER),
+      403,
+      'No tienes permiso para eliminar este álbum',
+    )
+  })
+
+  it('devuelve 403 para un álbum sin dueño, incluso sin sesión identificada', async () => {
+    await expectHttpError(
+      albumService.update(3, { name: 'Hackeado' }, OWNER),
+      403,
+      'No tienes permiso para modificar este álbum',
+    )
+    await expectHttpError(
+      albumService.delete(3, OWNER),
+      403,
+      'No tienes permiso para eliminar este álbum',
+```
+
 
 ---
 
@@ -804,10 +1985,27 @@ Comprobaciones útiles y problemas frecuentes:
 | Error de conexión a MySQL | El contenedor no está arriba | `docker compose ps` y `docker compose up -d` |
 | Vite arranca en otro puerto | El 5173 está ocupado | Usar el puerto que indique la consola |
 
-> **[IMAGEN 33 — pendiente]**
-> **Qué capturar:** terminal con `docker compose ps` y los dos servidores en marcha (backend y Vite).
-> **Archivo sugerido:** `docs/img/33-arranque-local.png`
-> **Pie sugerido:** «Figura 33. Entorno local en marcha: MySQL en Docker y ambos servidores.»
+**`app/docker-compose.yml` (líneas 1-16)**
+
+```yaml
+services:
+  db:
+    image: mysql:8
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-root}
+      MYSQL_DATABASE: ${MYSQL_DATABASE:-stickdex}
+      MYSQL_USER: ${MYSQL_USER:-stickdex}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:-stickdex}
+    ports:
+      - "3306:3306"
+    volumes:
+      - db_data:/var/lib/mysql
+
+volumes:
+  db_data:
+```
+
 
 ---
 
@@ -830,15 +2028,102 @@ Comprobaciones útiles y problemas frecuentes:
   Los repositorios se sustituyen por **dobles en memoria** que implementan las interfaces reales, por
   lo que el propio compilador verifica que son sustitutos válidos.
 
-> **[IMAGEN 34 — pendiente]**
-> **Qué capturar:** salida de `npm test` en `app/backend` (los 8 archivos en verde y el resumen de 120 pruebas).
-> **Archivo sugerido:** `docs/img/34-tests.png`
-> **Pie sugerido:** «Figura 34. Suite de pruebas: 120 casos en verde sin necesidad de MySQL.»
+**Resultado de `npm test` en `app/backend`** (sin base de datos)
 
-> **[IMAGEN 35 — pendiente]**
-> **Qué capturar:** `app/backend/tests/collection.service.test.ts` (primeras 40 líneas) y `tests/fakes/collectionRepository.fake.ts` (primeras 25).
-> **Archivo sugerido:** `docs/img/35-tests-servicio-fake.png`
-> **Pie sugerido:** «Figura 35. Pruebas de reglas de negocio con dobles en memoria de los repositorios.»
+| Archivo de pruebas | Casos |
+|---|---|
+| `tests/auth.service.test.ts` | 9 |
+| `tests/catalog.service.test.ts` | 17 |
+| `tests/collection.service.test.ts` | 24 |
+| `tests/errorHandler.test.ts` | 12 |
+| `tests/sessionStore.test.ts` | 6 |
+| `tests/validations.auth.test.ts` | 9 |
+| `tests/validations.catalog.test.ts` | 30 |
+| `tests/validations.env.test.ts` | 13 |
+| **Total** | **120** |
+
+
+
+**`app/backend/tests/collection.service.test.ts` (líneas 1-40)**
+
+```ts
+import { beforeEach, describe, expect, it } from 'vitest'
+import { CollectionService, computeProgress } from '@/services/collection.service'
+import { InMemoryAlbumRepository } from './fakes/albumRepository.fake'
+import { InMemoryCollectionRepository } from './fakes/collectionRepository.fake'
+import { InMemoryStickerRepository } from './fakes/stickerRepository.fake'
+import { InMemoryUserRepository } from './fakes/userRepository.fake'
+import { expectHttpError } from './helpers/http'
+
+const OWNER = 1
+const OTHER = 2
+
+type CollectionFixture = {
+  users: InMemoryUserRepository
+  albums: InMemoryAlbumRepository
+  stickers: InMemoryStickerRepository
+  collections: InMemoryCollectionRepository
+  service: CollectionService
+}
+
+function createFixture(): CollectionFixture {
+  const users = new InMemoryUserRepository([
+    { id: OWNER, username: 'enrique', email: 'enrique@example.com', password: 'hash' },
+    { id: OTHER, username: 'ana', email: 'ana@example.com', password: 'hash' },
+  ])
+  const albums = new InMemoryAlbumRepository([
+    { id: 1, name: 'Mundial 2026', totalStickers: 6, userId: OWNER },
+    { id: 2, name: 'Pokémon', totalStickers: 2, userId: OWNER },
+  ])
+  const stickers = new InMemoryStickerRepository([
+    { id: 101, albumId: 1, number: 1, name: 'Uno' },
+    { id: 102, albumId: 1, number: 2, name: 'Dos' },
+    { id: 103, albumId: 1, number: 3, name: 'Tres' },
+    { id: 104, albumId: 1, number: 4, name: 'Cuatro' },
+    { id: 105, albumId: 1, number: 5, name: 'Cinco' },
+    { id: 106, albumId: 1, number: 6, name: 'Seis' },
+    { id: 201, albumId: 2, number: 1, name: 'Pikachu' },
+  ])
+  const collections = new InMemoryCollectionRepository({ albums, stickers, users }, [
+    {
+      id: 1,
+```
+
+**`app/backend/tests/fakes/collectionRepository.fake.ts` (líneas 1-30)**
+
+```ts
+import type { CollectedSticker, Collection, Sticker } from '@prisma/client'
+import type { IAlbumRepository } from '@/interfaces/album.repository.interface'
+import type { IStickerRepository } from '@/interfaces/sticker.repository.interface'
+import type { IUserRepository } from '@/interfaces/user.repository.interface'
+import type {
+  CollectedStickerWithSticker,
+  CollectionDetail,
+  CollectionQueryFilter,
+  CollectionSummary,
+  CreateCollectionData,
+  ICollectionRepository,
+  UpdateCollectionData,
+} from '@/interfaces/collection.repository.interface'
+
+export type SeedCollected = {
+  stickerId: number
+  quantity?: number
+  isDuplicated?: boolean
+}
+
+export type SeedCollection = {
+  id?: number
+  name: string
+  albumId: number
+  userId: number
+  isPublic?: boolean
+  collected?: SeedCollected[]
+  createdAt?: Date
+}
+
+```
+
 
 ### 8.1 Verificación ejecutada sobre este repositorio
 
@@ -868,59 +2153,7 @@ Comprobaciones útiles y problemas frecuentes:
 
 ---
 
-## Anexo A — Catálogo de figuras
-
-Todas las capturas propuestas, en orden. La ruta sugerida asume que las imágenes se guardan en
-`docs/img/` con la numeración indicada.
-
-| # | Contenido | Archivo de código | Sugerido como |
-|---|---|---|---|
-| 1 | Diagrama de capas | (bloque Mermaid de la sección 3) | `docs/img/01-arquitectura-capas.png` |
-| 2 | Raíz de composición | `app/backend/src/config/container.ts` (1-32) | `docs/img/02-composition-root.png` |
-| 3 | Cadena de Express | `app/backend/src/app.ts` (1-19) | `docs/img/03-app-express.png` |
-| 4 | Esquema de entorno | `app/backend/src/validations/env.schema.ts` (1-21) | `docs/img/04-env-schema.png` |
-| 5 | Extensión de Prisma | `config/prisma.ts` + `config/prismaError.ts` | `docs/img/05-prisma-extend.png` |
-| 6 | Regla `addSticker` | `services/collection.service.ts` (98-120) | `docs/img/06-add-sticker-service.png` |
-| 7 | Rutas declarativas | `routes/collection.routes.ts` (1-74) | `docs/img/07-routes-collection.png` |
-| 8 | Middleware `validate` | `middlewares/validate.ts` (1-35) | `docs/img/08-validate-middleware.png` |
-| 9 | Subida con Multer | `middlewares/upload.ts` (1-45) | `docs/img/09-upload-middleware.png` |
-| 10 | Manejador de errores | `middlewares/error.ts` (1-53) | `docs/img/10-error-handler.png` |
-| 11 | Controlador | `controllers/collection.controller.ts` (1-45) | `docs/img/11-controller.png` |
-| 12 | Regla de propiedad | `services/albumAccess.ts` (1-13) | `docs/img/12-ownership.png` |
-| 13 | Visibilidad y propiedad | `services/collection.service.ts` (185-217) | `docs/img/13-visibilidad-propiedad.png` |
-| 14 | Cálculo de progreso | `services/collection.service.ts` (26-38) | `docs/img/14-progreso.png` |
-| 15 | Repositorio con `include` | `repositories/collection.repository.ts` (1-45) | `docs/img/15-repository.png` |
-| 16 | Contrato de servicio | `interfaces/collection.service.interface.ts` (40-62) | `docs/img/16-interfaz-servicio.png` |
-| 17 | Modelo de datos | `app/backend/prisma/schema.prisma` (1-80) | `docs/img/17-schema-prisma.png` |
-| 18 | Store de sesiones | `config/sessionStore.ts` (1-59) | `docs/img/18-session-store.png` |
-| 19 | Servicio de auth | `services/auth.service.ts` (1-44) | `docs/img/19-auth-service.png` |
-| 20 | Helpers de Zod | `validations/common.ts` (1-44) | `docs/img/20-validaciones-comunes.png` |
-| 21 | Entrada del frontend | `src/App.tsx` + `src/main.tsx` | `docs/img/21-frontend-entry.png` |
-| 22 | Guarda de ruta | `src/routes/RequireAuth.tsx` (1-23) | `docs/img/22-require-auth.png` |
-| 23 | Contexto de auth | `src/context/AuthContext.tsx` (1-60) | `docs/img/23-auth-context.png` |
-| 24 | Cliente HTTP | `src/services/api.ts` (1-30 y 55-87) | `docs/img/24-api-client.png` |
-| 25 | Espejo de esquemas | `src/validations/collection.schema.ts` (1-37) | `docs/img/25-validaciones-cliente.png` |
-| 26 | Validación inline | `src/pages/Register.tsx` (33-45) | `docs/img/26-validacion-inline.png` |
-| 27 | Interfaz por autoría | `src/pages/CollectionDetail.tsx` (bloque `isOwner`) | `docs/img/27-ui-autoria.png` |
-| 28 | Tema visual | `app/frontend/tailwind.config.js` (1-28) | `docs/img/28-tema-tailwind.png` |
-| 29 | Alias y proxy | `app/frontend/vite.config.ts` (1-26) | `docs/img/29-vite-proxy.png` |
-| 30 | UI: detalle de álbum | Pantalla `/albums/:id` | `docs/img/30-ui-album-detalle.png` |
-| 31 | UI: detalle de colección | Pantalla `/collections/:id` | `docs/img/31-ui-coleccion.png` |
-| 32 | Respuesta 403 | Terminal o prueba automatizada | `docs/img/32-403-propiedad.png` |
-| 33 | Arranque local | Terminal (`docker compose ps` + servidores) | `docs/img/33-arranque-local.png` |
-| 34 | Suite de pruebas | Terminal `npm test` en `app/backend` | `docs/img/34-tests.png` |
-| 35 | Pruebas + dobles | `tests/collection.service.test.ts` (1-40) y `tests/fakes/collectionRepository.fake.ts` (1-25) | `docs/img/35-tests-servicio-fake.png` |
-
-Recomendaciones de formato para que el documento se vea uniforme:
-
-- Recortes **solo** del código relevante (no pantallas completas del editor) y con la indentación conservada.
-- Fuente monoespaciada de 13-14 px; tema oscuro consistente en todas las capturas.
-- Ancho homogéneo (mismo número de columnas visibles) para que el documento no "salte".
-- Enumerar cada figura con el pie indicado (`Figura n. …`) y referenciarla en el texto.
-
----
-
-## Anexo B — Glosario
+## Anexo A — Glosario
 
 | Término | Significado en este proyecto |
 |---|---|

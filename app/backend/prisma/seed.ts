@@ -258,11 +258,11 @@ async function getOrCreateUser(username: string, email: string, passwordHash: st
 }
 
 async function main() {
-  console.log('🌱 Iniciando seed de la base de datos...')
+  console.log('Iniciando seed de la base de datos...')
 
   const uploadDir = path.join(process.cwd(), 'uploads')
   ensureSampleImages(uploadDir)
-  console.log('✓ Imágenes muestra vectoriales creadas en uploads/')
+  console.log('OK: Imágenes muestra vectoriales creadas en uploads/')
 
   const hashedPassword = await bcrypt.hash('password123', 10)
 
@@ -270,7 +270,7 @@ async function main() {
   const user1 = await getOrCreateUser('coleccionista1', 'cole1@test.com', hashedPassword)
   const user2 = await getOrCreateUser('coleccionista2', 'cole2@test.com', hashedPassword)
 
-  console.log('✓ Usuarios disponibles (contraseña: password123):')
+  console.log('OK: Usuarios disponibles (contraseña: password123):')
   console.log(`  - ${user1.email} (${user1.username})`)
   console.log(`  - ${user2.email} (${user2.username})`)
 
@@ -313,7 +313,7 @@ async function main() {
         },
       },
     })
-    console.log('✓ Álbum "Mundial 2026" creado con 10 láminas')
+    console.log('OK: Álbum "Mundial 2026" creado con 10 láminas')
   } else {
     // Actualizar portada, totalStickers, dueño y fotos de láminas existentes
     await prisma.album.update({
@@ -347,7 +347,7 @@ async function main() {
         })
       }
     }
-    console.log('✓ Álbum y láminas actualizados con diseño deluxe e imágenes')
+    console.log('OK: Álbum y láminas actualizados con diseño deluxe e imágenes')
   }
 
   // 3. Colección de prueba para coleccionista1 (estado documentado en el README)
@@ -357,7 +357,7 @@ async function main() {
   })
 
   if (albumStickers.length < 5) {
-    console.warn('⚠ Se necesitan al menos 5 láminas para crear la colección de prueba')
+    console.warn('Aviso: se necesitan al menos 5 láminas para crear la colección de prueba')
   } else {
     const existingCol = await prisma.collection.findFirst({
       where: { userId: user1.id, albumId: album.id },
@@ -416,10 +416,10 @@ async function main() {
       }),
     ])
 
-    console.log('✓ Colección de prueba lista (5 láminas pegadas, 2 repetidas, 5 faltantes)')
+    console.log('OK: Colección de prueba lista (5 láminas pegadas, 2 repetidas, 5 faltantes)')
   }
 
-  console.log('🎉 Seed completado exitosamente.')
+  console.log('Seed completado exitosamente.')
 }
 
 main()

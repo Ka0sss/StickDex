@@ -1,0 +1,11 @@
+node_modules
+dist
+uploads
+.env
+*.log
+tests
+vitest.config.ts
+tsconfig.all.json
+eslint.config.mjs
+.prettierrc.json
+.prettierignore

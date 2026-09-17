@@ -280,7 +280,6 @@ export default function AlbumDetail() {
               <img src={album.imageUrl} alt={album.name} className="h-full w-full object-cover" />
             ) : (
               <div className="flex h-full flex-col items-center justify-center bg-gradient-to-br from-binder-800 to-binder-950 p-6 text-center">
-                <span className="text-6xl">🏆</span>
                 <p className="mt-2 font-display text-lg font-black text-white">{album.name}</p>
               </div>
             )}
@@ -296,12 +295,11 @@ export default function AlbumDetail() {
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <div className="flex items-center space-x-2">
                   <span className="inline-flex items-center space-x-1.5 rounded-full bg-amber-400/10 px-3 py-1 text-xs font-black uppercase tracking-wider text-amber-400 border border-amber-400/30">
-                    <span>★</span>
                     <span>Colección Oficial</span>
                   </span>
                   {isCatalogComplete && (
                     <span className="rounded-full border border-emerald-500/40 bg-emerald-950/40 px-3 py-1 text-xs font-black uppercase tracking-wider text-emerald-400">
-                      ✓ Catálogo 100%
+                      Catálogo 100%
                     </span>
                   )}
                 </div>
@@ -365,7 +363,7 @@ export default function AlbumDetail() {
       {confirmDeleteAlbum && (
         <div className="rounded-2xl border border-red-500/50 bg-red-950/70 p-5 shadow-2xl">
           <p className="text-sm font-bold text-red-200">
-            ⚠️ ¿Confirmas que deseas eliminar el álbum "{album.name}" y todas sus láminas asociadas?
+            ¿Confirmas que deseas eliminar el álbum "{album.name}" y todas sus láminas asociadas?
           </p>
           <div className="mt-3 flex space-x-3">
             <button
@@ -407,7 +405,6 @@ export default function AlbumDetail() {
             }}
             className="inline-flex items-center space-x-1.5 rounded-xl border border-binder-700 bg-binder-800/80 px-4 py-2.5 text-xs font-bold text-slate-200 hover:bg-binder-700 hover:text-white"
           >
-            <span>⚡</span>
             <span>Carga Masiva</span>
           </button>
         </div>
@@ -480,7 +477,7 @@ export default function AlbumDetail() {
                   {/* Shimmer overlay al hover */}
                   <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent opacity-0 transition-opacity group-hover:opacity-100 flex items-end justify-center pb-2.5">
                     <span className="rounded-lg bg-black/80 px-2.5 py-1 text-[10px] font-black uppercase tracking-wider text-amber-400 backdrop-blur-md border border-amber-400/30">
-                      🔍 Inspeccionar
+                      Inspeccionar
                     </span>
                   </div>
                 </div>
@@ -562,7 +559,7 @@ export default function AlbumDetail() {
               onClick={() => setInspectedSticker(null)}
               className="absolute right-4 top-4 flex h-8 w-8 items-center justify-center rounded-full bg-binder-800 text-slate-400 hover:text-white"
             >
-              ✕
+              ×
             </button>
 
             <span className="font-mono text-[10px] font-black uppercase tracking-[0.25em] text-amber-400">
@@ -622,7 +619,7 @@ export default function AlbumDetail() {
                 onClick={() => setShowAddModal(false)}
                 className="text-slate-400 hover:text-white"
               >
-                ✕
+                ×
               </button>
             </div>
 
@@ -751,7 +748,7 @@ export default function AlbumDetail() {
                 onClick={() => setShowBulkModal(false)}
                 className="text-slate-400 hover:text-white"
               >
-                ✕
+                ×
               </button>
             </div>
 

@@ -55,9 +55,6 @@ export default function Register() {
     <div className="mx-auto flex max-w-md flex-col justify-center py-12">
       <div className="rounded-2xl border border-binder-700/80 bg-binder-900/90 p-8 shadow-2xl shadow-black/50 backdrop-blur-sm">
         <div className="text-center">
-          <span className="inline-flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br from-indigo-500 to-indigo-700 text-2xl shadow-lg shadow-indigo-500/20">
-            📖
-          </span>
           <h2 className="mt-4 font-display text-2xl font-black text-white">Únete a StickDex</h2>
           <p className="mt-1 text-xs font-medium text-slate-400">
             Empieza a coleccionar, pegar láminas e intercambiar repetidas

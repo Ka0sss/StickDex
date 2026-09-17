@@ -79,7 +79,6 @@ export default function Profile() {
         </div>
       ) : collections.length === 0 ? (
         <div className="rounded-3xl border border-dashed border-binder-700/80 bg-binder-900/40 py-20 text-center">
-          <span className="text-4xl">📂</span>
           <h3 className="mt-3 font-display text-xl font-black text-white">
             Todavía no tienes colecciones
           </h3>

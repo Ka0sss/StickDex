@@ -130,7 +130,6 @@ export default function AlbumsList() {
 
         <div className="relative z-10 max-w-3xl">
           <div className="inline-flex items-center space-x-2 rounded-full border border-amber-400/30 bg-amber-400/10 px-3.5 py-1 text-xs font-black uppercase tracking-widest text-amber-400 backdrop-blur-md">
-            <span>✨</span>
             <span>Plataforma Oficial para Coleccionistas</span>
           </div>
 
@@ -160,7 +159,6 @@ export default function AlbumsList() {
                 to="/register"
                 className="inline-flex items-center space-x-2 rounded-xl bg-gradient-to-r from-amber-400 via-amber-500 to-amber-600 px-6 py-3 text-xs font-black uppercase tracking-wider text-slate-950 shadow-lg shadow-amber-500/25 transition hover:brightness-110"
               >
-                <span>🚀</span>
                 <span>Empezar a Coleccionar</span>
               </Link>
             )}
@@ -217,7 +215,6 @@ export default function AlbumsList() {
           </div>
         ) : albums.length === 0 ? (
           <div className="mt-8 rounded-3xl border border-dashed border-binder-700/80 bg-binder-900/40 py-24 text-center">
-            <span className="text-4xl">📖</span>
             <h3 className="mt-3 font-display text-xl font-black text-white">
               No hay álbumes disponibles
             </h3>
@@ -238,7 +235,7 @@ export default function AlbumsList() {
                     className="absolute right-3 top-3 z-10 rounded-lg border border-amber-400/30 bg-black/70 px-2.5 py-1 text-[10px] font-black uppercase tracking-wider text-amber-300 backdrop-blur-md transition hover:bg-black/90 hover:text-amber-200"
                     title="Editar este álbum"
                   >
-                    ✏️ Editar
+                    Editar
                   </button>
                 )}
 
@@ -253,7 +250,6 @@ export default function AlbumsList() {
                       />
                     ) : (
                       <div className="flex h-full flex-col items-center justify-center bg-gradient-to-br from-binder-800 to-binder-950 p-6 text-center">
-                        <span className="text-5xl font-black text-slate-700">📖</span>
                         <p className="mt-2 font-display text-lg font-black text-slate-300">
                           {album.name}
                         </p>
@@ -323,7 +319,7 @@ export default function AlbumsList() {
                 onClick={() => setShowModal(false)}
                 className="flex h-8 w-8 items-center justify-center rounded-full bg-binder-800 text-slate-400 hover:text-white"
               >
-                ✕
+                ×
               </button>
             </div>
 

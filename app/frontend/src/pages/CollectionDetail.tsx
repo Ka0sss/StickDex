@@ -350,8 +350,8 @@ export default function CollectionDetail() {
         {confirmDeleteCollection && (
           <div className="mt-6 rounded-2xl border border-red-500/50 bg-red-950/70 p-5 shadow-2xl">
             <p className="text-sm font-bold text-red-200">
-              ⚠️ ¿Seguro que deseas eliminar la colección "{collection.name}"? Se perderá el
-              registro de láminas pegadas.
+              ¿Seguro que deseas eliminar la colección "{collection.name}"? Se perderá el registro
+              de láminas pegadas.
             </p>
             <div className="mt-3 flex space-x-3">
               <button
@@ -374,7 +374,6 @@ export default function CollectionDetail() {
         <div className="mt-8 border-t border-binder-800/80 pt-6">
           <div className="flex flex-wrap items-center justify-between gap-3 text-sm">
             <div className="flex items-center space-x-2.5">
-              <span className="text-xl">{isFinished ? '🏆' : '⭐'}</span>
               <span className="font-display text-sm font-bold uppercase tracking-wider text-slate-300">
                 {isFinished ? '¡Álbum 100% Completado!' : 'Progreso de Colección'}
               </span>
@@ -439,7 +438,6 @@ export default function CollectionDetail() {
         <div>
           {collection.stickers.length === 0 ? (
             <div className="rounded-3xl border border-dashed border-binder-700/80 bg-binder-900/40 py-20 text-center">
-              <span className="text-4xl">📖</span>
               <h3 className="mt-3 font-display text-xl font-black text-white">
                 Tu álbum está vacío
               </h3>
@@ -488,7 +486,7 @@ export default function CollectionDetail() {
 
                     <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent opacity-0 transition-opacity group-hover:opacity-100 flex items-end justify-center pb-2.5">
                       <span className="rounded-lg bg-black/80 px-2.5 py-1 text-[10px] font-black uppercase tracking-wider text-amber-400 backdrop-blur-md border border-amber-400/30">
-                        🔍 Inspeccionar
+                        Inspeccionar
                       </span>
                     </div>
                   </div>
@@ -574,7 +572,6 @@ export default function CollectionDetail() {
         <div>
           {missingStickers.length === 0 ? (
             <div className="rounded-3xl border border-emerald-500/40 bg-emerald-950/20 py-20 text-center shadow-lg">
-              <span className="text-5xl">🏆</span>
               <h3 className="mt-4 font-display text-3xl font-black text-emerald-400">
                 ¡ÁLBUM 100% COMPLETADO!
               </h3>
@@ -620,7 +617,6 @@ export default function CollectionDetail() {
         <div>
           {duplicateStickers.length === 0 ? (
             <div className="rounded-3xl border border-dashed border-binder-700/80 bg-binder-900/40 py-20 text-center text-sm text-slate-400">
-              <span className="text-3xl">🔄</span>
               <p className="mt-2 font-display text-base font-bold text-white">
                 No tienes láminas repetidas para intercambio
               </p>
@@ -687,7 +683,7 @@ export default function CollectionDetail() {
               onClick={() => setInspectedSticker(null)}
               className="absolute right-4 top-4 flex h-8 w-8 items-center justify-center rounded-full bg-binder-800 text-slate-400 hover:text-white"
             >
-              ✕
+              ×
             </button>
 
             <span className="font-mono text-[10px] font-black uppercase tracking-[0.25em] text-amber-400">
@@ -742,7 +738,7 @@ export default function CollectionDetail() {
                 onClick={() => setShowAddModal(false)}
                 className="text-slate-400 hover:text-white"
               >
-                ✕
+                ×
               </button>
             </div>
 
@@ -804,7 +800,7 @@ export default function CollectionDetail() {
                 />
                 {Number(quantity) > 1 && (
                   <p className="mt-1.5 text-[11px] font-bold text-amber-400">
-                    ⚡ Se marcará con {Number(quantity) - 1} repetida(s) para intercambio
+                    Se marcará con {Number(quantity) - 1} repetida(s) para intercambio
                   </p>
                 )}
               </div>
@@ -845,7 +841,7 @@ export default function CollectionDetail() {
                 onClick={() => setShowRenameModal(false)}
                 className="text-slate-400 hover:text-white"
               >
-                ✕
+                ×
               </button>
             </div>
 

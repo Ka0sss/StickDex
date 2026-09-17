@@ -1990,8 +1990,10 @@ Cómo se construye cada imagen:
   `npm run build` (TypeScript + reescritura del alias `@/`); etapa de ejecución con solo
   dependencias de producción, el cliente generado, `dist/` y las migraciones. El contenedor arranca
   con `npx prisma migrate deploy && node dist/server.js`, por lo que la base queda migrada antes de
-  aceptar peticiones. El CLI de Prisma está en `dependencies` precisamente para poder migrar dentro
-  de la imagen.
+  aceptar peticiones. El CLI de Prisma y `tsx` están en `dependencies` (no en `devDependencies`)
+  porque ambos se necesitan dentro de la imagen: uno para migrar al arrancar y el otro para ejecutar
+  el seed. Además, `npm ci` dispara `prisma generate` como `postinstall`, de modo que el cliente
+  queda generado tanto al construir la imagen como tras instalar en un clon recién descargado.
 - **Frontend**: etapa de compilación con Vite y etapa final `nginx:alpine` que sirve el bundle y hace
   de proxy inverso de `/api` y `/uploads` hacia el backend (además de resolver las rutas de la SPA con
   `try_files ... /index.html` y admitir subidas de hasta 6 MB, por encima del límite de 5 MB de

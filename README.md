@@ -177,7 +177,7 @@ docker compose up -d db
 
 ```bash
 cp .env.example .env      # DATABASE_URL, SESSION_SECRET (32+), PORT, NODE_ENV
-npm install
+npm install               # instala y genera el cliente de Prisma (postinstall)
 npx prisma migrate dev    # aplica las migraciones
 npm run prisma:seed       # datos de demostración
 npm run dev               # http://localhost:3000

@@ -58,6 +58,15 @@ export function getFieldErrors(err: unknown): Record<string, string> {
   if (firstIssue) return { [firstIssue.path || '_form']: firstIssue.message }
   return {}
 }
+export function getServerErrors(
+  err: unknown,
+  fallback: string,
+): { fields: Record<string, string>; form: string | null } {
+  const { _form, ...fields } = getFieldErrors(err)
+  if (_form) return { fields, form: _form }
+  if (Object.keys(fields).length > 0) return { fields, form: null }
+  return { fields, form: err instanceof Error ? err.message : fallback }
+}
 
 export async function api<T>(path: string, init?: RequestInit): Promise<T> {
   const isFormData = init?.body instanceof FormData

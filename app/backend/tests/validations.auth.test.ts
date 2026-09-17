@@ -64,9 +64,9 @@ describe('registerSchema', () => {
     expect(messagesAt(error, 'password')).toContain('La contraseña no puede superar 72 bytes')
   })
 
-  it('rechaza 40 emojis (80 caracteres, 160 bytes) porque bcrypt los truncaría', () => {
-    const password = '😀'.repeat(40)
-    expect(password.length).toBe(80)
+  it('rechaza 25 caracteres multibyte (75 bytes) porque bcrypt los truncaría', () => {
+    const password = '漢'.repeat(25)
+    expect(Buffer.byteLength(password, 'utf8')).toBe(75)
 
     const error = failureOf(registerSchema.safeParse({ ...VALID_REGISTER, password }))
 

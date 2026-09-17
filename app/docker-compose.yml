@@ -36,7 +36,7 @@ services:
       - "3000:3000"
     volumes:
       # Carpeta compartida con el host: el seed y las subidas se ven igual desde ambos lados
-      - ./backend/uploads:/app/uploads
+      - ./backend/uploads:/app/uploads:z
     depends_on:
       db:
         condition: service_healthy

@@ -2,6 +2,8 @@
 
 Sistema web fullstack para coleccionistas de láminas de álbumes. Permite crear álbumes con sus catálogos de láminas (con foto y carga masiva), gestionar colecciones personales con cálculo de progreso en tiempo real (%), y obtener reportes automáticos de láminas faltantes y láminas repetidas para intercambio.
 
+**Documentación:** [`docs/brief.md`](docs/brief.md) (especificación y Definition of Done) · [`docs/informe-tecnico.md`](docs/informe-tecnico.md) (informe técnico detallado: arquitectura, capas del backend, frontend, flujos y catálogo de figuras).
+
 ---
 
 ## 🚀 Stack Tecnológico
@@ -63,7 +65,8 @@ StickDex/
 ├── README.md               # Documentación general del proyecto
 ├── AGENTS.md               # Protocolo operativo de desarrollo
 ├── docs/
-│   └── brief.md            # Especificación completa y requerimientos
+│   ├── brief.md            # Especificación completa y requerimientos
+│   └── informe-tecnico.md  # Informe técnico detallado (arquitectura, capas, flujos y catálogo de figuras)
 ├── app/
 │   ├── docker-compose.yml  # Configuración del servicio MySQL
 │   ├── backend/

@@ -33,6 +33,8 @@ export default function CollectionDetail() {
   const [collection, setCollection] = useState<CollectionDetailData | null>(null)
   const [missingStickers, setMissingStickers] = useState<Sticker[]>([])
   const [duplicateStickers, setDuplicateStickers] = useState<DuplicatedSticker[]>([])
+  const [missingError, setMissingError] = useState<string | null>(null)
+  const [duplicatesError, setDuplicatesError] = useState<string | null>(null)
   const [albumStickers, setAlbumStickers] = useState<Sticker[]>([])
 
   const [activeTab, setActiveTab] = useState<'collected' | 'missing' | 'duplicates'>('collected')
@@ -66,16 +68,29 @@ export default function CollectionDetail() {
   const loadAll = async () => {
     try {
       setLoading(true)
+      setError(null)
+      setMissingError(null)
+      setDuplicatesError(null)
       const col = await api<CollectionDetailData>(`/collections/${id}`)
       setCollection(col)
 
-      // Fetch reports
-      const [missing, duplicates] = await Promise.all([
-        api<Sticker[]>(`/collections/${id}/missing`).catch(() => []),
-        api<DuplicatedSticker[]>(`/collections/${id}/duplicates`).catch(() => []),
+      // Fetch reports independently so one failure does not hide the other report.
+      const [missing, duplicates] = await Promise.allSettled([
+        api<Sticker[]>(`/collections/${id}/missing`),
+        api<DuplicatedSticker[]>(`/collections/${id}/duplicates`),
       ])
-      setMissingStickers(missing)
-      setDuplicateStickers(duplicates)
+
+      if (missing.status === 'fulfilled') {
+        setMissingStickers(missing.value)
+      } else {
+        setMissingError('No se pudo cargar el reporte de láminas faltantes.')
+      }
+
+      if (duplicates.status === 'fulfilled') {
+        setDuplicateStickers(duplicates.value)
+      } else {
+        setDuplicatesError('No se pudo cargar el reporte de láminas repetidas.')
+      }
 
       // If owner, load album stickers for adding
       if (col.albumId) {
@@ -584,7 +599,11 @@ export default function CollectionDetail() {
       {/* Tab 2: Láminas Faltantes (Casillas vacías de álbum físico) */}
       {activeTab === 'missing' && (
         <div>
-          {missingStickers.length === 0 ? (
+          {missingError ? (
+            <div className="rounded-3xl border border-red-500/30 bg-red-950/40 py-20 text-center text-sm font-semibold text-red-300">
+              {missingError}
+            </div>
+          ) : missingStickers.length === 0 ? (
             <div className="rounded-3xl border border-emerald-500/40 bg-emerald-950/20 py-20 text-center shadow-lg">
               <h3 className="mt-4 font-display text-3xl font-black text-emerald-400">
                 ¡ÁLBUM 100% COMPLETADO!
@@ -629,7 +648,11 @@ export default function CollectionDetail() {
       {/* Tab 3: Láminas Repetidas (Pila de intercambio con insignia dorada) */}
       {activeTab === 'duplicates' && (
         <div>
-          {duplicateStickers.length === 0 ? (
+          {duplicatesError ? (
+            <div className="rounded-3xl border border-red-500/30 bg-red-950/40 py-20 text-center text-sm font-semibold text-red-300">
+              {duplicatesError}
+            </div>
+          ) : duplicateStickers.length === 0 ? (
             <div className="rounded-3xl border border-dashed border-binder-700/80 bg-binder-900/40 py-20 text-center text-sm text-slate-400">
               <p className="mt-2 font-display text-base font-bold text-white">
                 No tienes láminas repetidas para intercambio

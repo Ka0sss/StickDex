@@ -10,11 +10,10 @@ RUN apt-get update \
   && apt-get install -y --no-install-recommends openssl \
   && rm -rf /var/lib/apt/lists/*
 
+# El esquema se copia antes de instalar porque `npm ci` ejecuta `prisma generate` (postinstall).
 COPY package.json package-lock.json ./
-RUN npm ci
-
 COPY prisma ./prisma
-RUN npx prisma generate
+RUN npm ci
 
 COPY tsconfig.json ./
 COPY src ./src
@@ -30,10 +29,8 @@ RUN apt-get update \
   && rm -rf /var/lib/apt/lists/*
 
 COPY package.json package-lock.json ./
-RUN npm ci --omit=dev
-
 COPY prisma ./prisma
-RUN npx prisma generate
+RUN npm ci --omit=dev
 
 COPY --from=build /app/dist ./dist
 

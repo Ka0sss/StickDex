@@ -11,7 +11,7 @@
     "lint": "eslint .",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
-    "prisma:generate": "prisma generate",
+    "postinstall": "prisma generate",
     "prisma:migrate": "prisma migrate dev",
     "prisma:seed": "prisma db seed"
   },
@@ -26,6 +26,7 @@
     "express-session": "^1.18.1",
     "multer": "^1.4.5-lts.1",
     "prisma": "^6.5.0",
+    "tsx": "^4.19.3",
     "zod": "^3.24.2"
   },
   "devDependencies": {
@@ -39,7 +40,6 @@
     "eslint-config-prettier": "^10.1.8",
     "prettier": "^3.9.7",
     "tsc-alias": "^1.9.5",
-    "tsx": "^4.19.3",
     "typescript": "^5.8.2",
     "typescript-eslint": "^8.70.0",
     "vitest": "^3.2.4"

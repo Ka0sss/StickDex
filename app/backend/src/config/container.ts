@@ -10,8 +10,10 @@ import { StickerService } from '@/services/sticker.service'
 import { AlbumController } from '@/controllers/album.controller'
 import { AuthController } from '@/controllers/auth.controller'
 import { CollectionController } from '@/controllers/collection.controller'
+import { HealthController } from '@/controllers/health.controller'
 import { StickerController } from '@/controllers/sticker.controller'
 import { UploadController } from '@/controllers/upload.controller'
+import { PrismaHealthRepository } from '@/repositories/health.repository'
 import { PrismaSessionStore } from '@/config/sessionStore'
 
 // Raíz de composición: único lugar donde se eligen las implementaciones
@@ -30,3 +32,4 @@ export const collectionController = new CollectionController(
   new CollectionService(collections, stickers, albums, users),
 )
 export const uploadController = new UploadController()
+export const healthController = new HealthController(new PrismaHealthRepository())

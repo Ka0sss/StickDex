@@ -27,7 +27,7 @@ Sistema web fullstack para coleccionistas de láminas de álbumes. Permite crear
 - **Calidad de Código:** ESLint 10 + Prettier 3 y alias de importación `@/` → `src/`
 
 ### Infraestructura
-- **Contenedores:** Docker & Docker Compose para el servicio de MySQL 8.
+- **Contenedores:** Docker & Docker Compose para el stack completo (MySQL 8 + backend + frontend) con *health checks* por servicio.
 
 ---
 
@@ -68,15 +68,17 @@ StickDex/
 │   ├── brief.md            # Especificación completa y requerimientos
 │   └── informe-tecnico.md  # Informe técnico detallado (arquitectura, capas del backend y del frontend, flujos)
 ├── app/
-│   ├── docker-compose.yml  # Configuración del servicio MySQL
+│   ├── docker-compose.yml  # Stack completo: MySQL + backend + frontend, con health checks
 │   ├── backend/
+│   │   ├── Dockerfile             # Imagen del backend (build + migraciones al arrancar)
+│   │   ├── .dockerignore
 │   │   ├── prisma/
 │   │   │   ├── schema.prisma      # Modelos de datos y relaciones (incluye Session)
 │   │   │   ├── seed.ts            # Datos de prueba reproducibles
 │   │   │   └── migrations/        # Historial de migraciones SQL
 │   │   ├── src/
 │   │   │   ├── config/            # Env (Zod), Prisma Client, sesión, container.ts (composición)
-│   │   │   ├── controllers/       # Capa HTTP (Auth, Album, Sticker, Collection, Upload)
+│   │   │   ├── controllers/       # Capa HTTP (Auth, Album, Sticker, Collection, Upload, Health)
 │   │   │   ├── interfaces/        # I*Repository / I*Service (contratos por agregado)
 │   │   │   ├── middlewares/       # Error handler, Zod validator, Auth, Multer, 404
 │   │   │   ├── repositories/      # Única capa con Prisma Client
@@ -85,11 +87,14 @@ StickDex/
 │   │   │   ├── utils/             # Helpers (asyncHandler, HttpError, sessionUserId)
 │   │   │   ├── validations/       # Esquemas Zod y mensajes de error en español
 │   │   │   ├── types/             # Tipos ambientales (sesión de express-session)
-│   │   │   ├── app.ts             # Configuración de Express y archivos estáticos
+│   │   │   ├── app.ts             # Configuración de Express, /health y archivos estáticos
 │   │   │   └── server.ts          # Arranque del servidor HTTP
 │   │   ├── tests/                 # Pruebas Vitest con dobles en memoria
-│   │   └── uploads/               # Directorio local de imágenes subidas
+│   │   └── uploads/               # Imágenes subidas (compartida con el contenedor)
 │   └── frontend/
+│       ├── Dockerfile             # Build con Vite y servido estático con Nginx
+│       ├── nginx.conf             # SPA + proxy de /api y /uploads + /healthz
+│       ├── .dockerignore
 │       ├── src/
 │       │   ├── components/        # Navbar, Layout y elementos reutilizables
 │       │   ├── context/           # AuthContext (gestión de sesión de usuario)
@@ -115,56 +120,78 @@ StickDex/
 
 ## Cómo Levantar el Proyecto
 
-### 1. Iniciar la Base de Datos con Docker
+### Opción A — Todo el stack con Docker Compose (recomendado)
 
-Desde el directorio `app/`:
+Un solo comando construye y levanta **base de datos + backend + frontend**, con *health checks* para
+arrancar en orden y comprobar que cada servicio está listo:
 
 ```bash
 cd app
-docker compose up -d
+docker compose up -d --build
+
+# Estado y salud de cada servicio
+docker compose ps
+
+# Registros (sigue el arranque: migraciones y servidor)
+docker compose logs -f backend
 ```
 
-Verifica que el contenedor esté corriendo con `docker compose ps`.
+| Servicio | Contenedor | URL | Health check |
+|---|---|---|---|
+| `db` | MySQL 8 | `localhost:3306` | `mysqladmin ping` |
+| `backend` | Node 22 + Express compilado | `http://localhost:3000` | `GET /health` (comprueba MySQL) |
+| `frontend` | Nginx sirviendo el bundle de Vite | `http://localhost:5173` | `GET /healthz` |
 
-### 2. Configurar y Levantar el Backend
+Cuando los tres aparecen como `(healthy)` la aplicación está lista en `http://localhost:5173`.
+El backend aplica las migraciones pendientes al arrancar (`prisma migrate deploy`).
 
-Abre una terminal y navega a `app/backend`:
+Datos de demostración (una sola vez, con el stack arriba):
 
 ```bash
-cd app/backend
-
-# Copiar variables de entorno
-cp .env.example .env
-
-# Instalar dependencias
-npm install
-
-# Aplicar las migraciones de Prisma
-npx prisma migrate dev
-
-# Cargar datos de prueba (seed de usuarios, álbum y colección)
-npm run prisma:seed
-# Iniciar en modo desarrollo
-npm run dev
+docker compose exec backend npm run prisma:seed
 ```
 
-El servidor estará escuchando en `http://localhost:3000`.
-
-### 3. Configurar y Levantar el Frontend
-
-Abre otra terminal y navega a `app/frontend`:
+Comandos útiles:
 
 ```bash
-cd app/frontend
-
-# Instalar dependencias
-npm install
-
-# Iniciar el servidor de desarrollo Vite
-npm run dev
+docker compose ps                 # estado y salud
+docker compose logs -f backend    # registros del backend
+docker compose down               # detener (conserva la base de datos)
+docker compose down -v            # detener y borrar el volumen de MySQL
 ```
 
-La aplicación web estará disponible en `http://localhost:5173`.
+El stack se configura por variables de entorno con valores por defecto, así que funciona sin crear
+ningún archivo. Si quieres cambiarlos, crea `app/.env` (por ejemplo `SESSION_SECRET`, `MYSQL_*`,
+`NODE_ENV`). Con `NODE_ENV=production` la cookie de sesión se marca `secure` y requiere HTTPS.
+
+### Opción B — Modo desarrollo con dos terminales
+
+Útil para trabajar con recarga en caliente. Primero la base de datos con Docker:
+
+```bash
+cd app
+docker compose up -d db
+```
+
+**Backend** (`app/backend`):
+
+```bash
+cp .env.example .env      # DATABASE_URL, SESSION_SECRET (32+), PORT, NODE_ENV
+npm install
+npx prisma migrate dev    # aplica las migraciones
+npm run prisma:seed       # datos de demostración
+npm run dev               # http://localhost:3000
+```
+
+**Frontend** (`app/frontend`):
+
+```bash
+npm install
+npm run dev               # http://localhost:5173 (proxy hacia /api y /uploads)
+```
+
+> Nota: el backend en Docker y el de desarrollo comparten la misma carpeta `app/backend/uploads`,
+> por lo que las imágenes subidas y las del seed se ven igual desde cualquiera de los dos modos.
 
 ---
 
@@ -245,6 +272,11 @@ Base URL: `http://localhost:3000/api`
 |---|---|---|
 | `POST` | `/upload` | Subir imagen JPEG/PNG/WEBP/GIF (máx. 5MB, requiere sesión). El archivo se guarda con la extensión derivada del MIME, nunca la del nombre original |
 
+### Estado del servicio
+| Método | Ruta | Descripción |
+|---|---|---|
+| `GET` | `/health` | Salud del backend y de su base de datos: `{ "status": "ok", "database": "up" }`. Si MySQL no responde devuelve `503` con `database: "down"`. Está fuera de `/api` y es el endpoint que consulta el health check de Docker Compose |
+
 ### Formato de errores
 
 Todas las respuestas de error siguen el mismo contrato:
@@ -261,7 +293,7 @@ Todas las respuestas de error siguen el mismo contrato:
 }
 ```
 
-Códigos usados: `400` validación, JSON malformado, archivo demasiado grande (`file_too_large`) o subida rechazada (`upload_error`); `401` sin sesión o credenciales inválidas; `403` recurso ajeno o colección privada; `404` recurso o ruta inexistente; `409` dato duplicado; `413` cuerpo de la petición demasiado grande (`payload_too_large`); `500` error interno.
+Códigos usados: `400` validación, JSON malformado, archivo demasiado grande (`file_too_large`) o subida rechazada (`upload_error`); `401` sin sesión o credenciales inválidas; `403` recurso ajeno o colección privada; `404` recurso o ruta inexistente; `409` dato duplicado; `413` cuerpo de la petición demasiado grande (`payload_too_large`); `500` error interno; `503` servicio no disponible (solo en `/health`, cuando MySQL no responde).
 
 ## Rutas del frontend
 

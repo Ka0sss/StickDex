@@ -275,6 +275,11 @@ Base: `/api`.
 | GET    | `/collections/:id/missing` | Láminas faltantes del álbum |
 | GET    | `/collections/:id/duplicates` | Láminas repetidas, con cantidad por lámina |
 
+> **Nota de implementación:** además de estos 25 endpoints de negocio, el backend expone
+> `GET /health` **fuera de `/api`**, que informa del estado del servicio y de su base de datos
+> (`{ "status": "ok", "database": "up" }`, o `503` con `database: "down"`). Lo usa el health check
+> de Docker Compose y no requiere sesión ni validación de entrada.
+
 - **Progreso**: porcentaje y conteo de láminas únicas obtenidas vs total del álbum.
 - **Faltantes**: láminas del álbum que no están en la colección.
 - **Repetidas**: láminas con más de una copia; la respuesta incluye la cantidad de repetidas por lámina.
@@ -300,35 +305,35 @@ Alternativa considerada: **TanStack Router** (type-safe al 100%), pero añade co
 
 ## 14. Docker / Infraestructura
 
-**Nota de implementación:** el `docker-compose.yml` real (`app/docker-compose.yml`) usa
-valores por defecto (`${VAR:-valor}`) para poder levantarse sin crear un `.env`:
-
-```yaml
-services:
-  db:
-    image: mysql:8
-    restart: always
-    environment:
-      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-root}
-      MYSQL_DATABASE: ${MYSQL_DATABASE:-stickdex}
-      MYSQL_USER: ${MYSQL_USER:-stickdex}
-      MYSQL_PASSWORD: ${MYSQL_PASSWORD:-stickdex}
-    ports:
-      - "3306:3306"
-    volumes:
-      - db_data:/var/lib/mysql
-
-volumes:
-  db_data:
-```
-
-Comandos:
+**Nota de implementación:** el `docker-compose.yml` real (`app/docker-compose.yml`) levanta el stack
+completo — base de datos, backend y frontend — con *health checks* por servicio y valores por defecto
+(`${VAR:-valor}`) para poder arrancar sin crear un `.env`:
 
 ```bash
-docker compose up -d          # levantar MySQL
-npx prisma migrate dev        # aplicar migraciones (desde app/backend)
-npx prisma studio             # inspeccionar datos
-npx prisma db seed            # cargar usuarios y datos de muestra (seed)
+cd app
+docker compose up -d --build     # construye y levanta db + backend + frontend
+docker compose ps                # estado y salud de cada servicio
+docker compose down              # detener (conserva el volumen de MySQL)
+```
+
+| Servicio | Imagen / build | Puerto | Health check |
+|---|---|---|---|
+| `db` | `mysql:8` | `3306` | `mysqladmin ping` |
+| `backend` | `app/backend` (Node 22, multi-etapa) | `3000` | `GET /health` (consulta MySQL) |
+| `frontend` | `app/frontend` (build de Vite + Nginx) | `5173` | `GET /healthz` |
+
+El arranque es ordenado por dependencias: el backend espera a que MySQL esté *healthy* y aplica las
+migraciones pendientes (`prisma migrate deploy`) antes de escuchar; el frontend espera al backend. La
+carpeta `app/backend/uploads` se comparte con el contenedor del backend y el volumen `db_data`
+conserva la base de datos entre arranques.
+
+Comandos de datos y utilidades:
+
+```bash
+docker compose exec backend npm run prisma:seed   # cargar datos de muestra (stack arriba)
+npx prisma migrate dev                            # migraciones en modo desarrollo (desde app/backend)
+npx prisma studio                                 # inspeccionar datos
+npx prisma db seed                                # equivalente al seed
 ```
 
 ### Datos de prueba (Seed)
@@ -368,6 +373,6 @@ Estas son las desviaciones conscientes respecto a lo descrito arriba, todas adit
 | §6/§7 SOLID | Interfaz e implementación separadas, con inyección por constructor y una única raíz de composición en `src/config/container.ts`. |
 | §9 Modelo | Se añade el modelo `Session` (ver nota en §9). |
 | §8 Errores | Además de los códigos pedidos se usa `413` cuando el cuerpo JSON excede el límite; el archivo de más de 5 MB responde `400` (`file_too_large`). |
-| §12 Endpoints | Los mismos 25 endpoints del §12, sin añadidos ni eliminados. |
-| §14 Docker | El `docker-compose.yml` usa valores por defecto (`${VAR:-valor}`) para poder levantarse sin crear un `.env`. |
+| §12 Endpoints | Los mismos 25 endpoints del §12, sin añadidos ni eliminados, más `GET /health` fuera de `/api` para el health check. |
+| §14 Docker | El `docker-compose.yml` levanta el stack completo (MySQL + backend + frontend) con health checks por servicio, espera ordenada por dependencias, migraciones automáticas al arrancar y valores por defecto (`${VAR:-valor}`) para no necesitar `.env`. |
 | Frontend | Se añade Zod en cliente (espejo de los esquemas del servidor) con validación inline, y las vistas de edición y de perfil público que faltaban.

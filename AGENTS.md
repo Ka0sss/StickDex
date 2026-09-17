@@ -33,6 +33,7 @@
 ## Antes de pushear / entregar
 
 - NO pushear sin confirmación explícita del usuario.
+- El stack completo se levanta con `docker compose up -d --build` desde `app/`; antes de dar por bueno un arranque, los tres servicios (`db`, `backend`, `frontend`) deben aparecer como `healthy` en `docker compose ps`.
 - NO forzar push (`--force`) ni reescribir historia de ramas compartidas.
 - Ejecutar typecheck, lint y pruebas relevantes ANTES de pushear.
 - Suite disponible: `app/backend` con `npm test` (Vitest, sin base de datos). El frontend no tiene suite propia; su comportamiento se verifica con el smoke test de la app real.

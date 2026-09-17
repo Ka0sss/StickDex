@@ -8,7 +8,7 @@
 | **Tipo** | Aplicación web fullstack (cliente + servidor + base de datos) |
 | **Repositorio** | `StickDex/` — backend en `app/backend`, frontend en `app/frontend` |
 | **Documentos relacionados** | `docs/brief.md` (especificación y Definition of Done), `AGENTS.md` (protocolo de desarrollo), `README.md` (guía de uso) |
-| **Estado** | Implementado y verificado: typecheck, lint, formato y 120 pruebas automatizadas en verde |
+| **Estado** | Implementado y verificado: typecheck, lint, formato y 120 pruebas automatizadas en verde, y el stack completo levantado con Docker Compose con los tres servicios en `(healthy)` |
 
 Este informe explica **cómo funciona el proyecto por dentro**: qué hace cada capa del backend, cómo se
 validan y autorizan las peticiones, cómo se modelan los datos, y cómo el frontend consume la API y
@@ -88,7 +88,7 @@ visibilidad** (`isPublic`).
 
 | Tecnología | Uso |
 |---|---|
-| Docker + Docker Compose | Levanta MySQL 8 en el puerto `3306` con volumen persistente `db_data` |
+| Docker + Docker Compose | Levanta el stack completo (MySQL 8 + backend + frontend) con health checks y un volumen persistente para la base |
 | ESLint 10 + Prettier 3 | Mismo estándar de calidad en ambos paquetes |
 | Alias `@/` → `src/` | Imports legibles en backend (con `tsc-alias` en el build) y frontend (alias de Vite) |
 
@@ -394,7 +394,7 @@ Tomemos un caso real: **`POST /api/collections/4/stickers`** (pegar una lámina 
 ```
 
 
-### 4.3 Rutas: los 25 endpoints
+### 4.3 Rutas: los 25 endpoints de la API y el health check
 
 Los routers de `src/routes/` solo importan el controlador del contenedor, montan la ruta y encadenan
 middlewares. No contienen ni una línea de lógica.
@@ -506,6 +506,12 @@ collectionRoutes.delete(
 | `GET` | `/api/collections/:id/missing` | — | params | Reporte de faltantes |
 | `GET` | `/api/collections/:id/duplicates` | — | params | Reporte de repetidas con cantidad |
 | `POST` | `/api/upload` | sí | file (multipart) | Subir imagen (máx. 5 MB) |
+| `GET` | `/health` | — | — | Estado del servicio y de MySQL; fuera de `/api`, lo consulta el health check de Docker |
+
+La cadena de `/health` es la más corta del proyecto: `app.get('/health', healthController.check)` en
+`app.ts` → `HealthController` → `IHealthRepository` → `PrismaHealthRepository` (`SELECT 1`). Con la
+base de datos caída responde `503` con `database: "down"`, y es lo que hace que el contenedor del
+backend deje de estar *healthy*.
 
 ### 4.4 Middlewares
 
@@ -1764,6 +1770,11 @@ server: {
 Así el navegador solo habla con `http://127.0.0.1:5173` (sin CORS) y las imágenes subidas
 (`/uploads/...`) se sirven desde el backend.
 
+Cuando la aplicación corre con Docker Compose, este papel lo cumple **Nginx** con la misma idea
+(ver `app/frontend/nginx.conf`): sirve el bundle compilado, reenvía `/api/` y `/uploads/` al servicio
+`backend`, resuelve cualquier ruta de la SPA con `try_files ... /index.html`, expone `/healthz` para
+su propio health check y admite cuerpos de hasta 6 MB para las subidas.
+
 **`app/frontend/vite.config.ts` (líneas 1-26)**
 
 ```ts
@@ -1952,12 +1963,52 @@ export default defineConfig({
 
 ## 7. Puesta en marcha local
 
-Requisitos: **Node.js 20+**, **npm** y **Docker** con Docker Compose.
+Requisitos: **Docker** con Docker Compose (para el stack completo) y, si vas a trabajar en modo
+desarrollo, **Node.js 20+** con **npm**.
+
+### 7.1 Stack completo con Docker Compose (recomendado)
+
+Un solo comando construye las imágenes y levanta los tres servicios en orden, esperando a que cada
+uno esté sano antes de arrancar el siguiente:
+
+```bash
+cd app
+docker compose up -d --build
+docker compose ps                # los tres servicios deben aparecer como (healthy)
+docker compose logs -f backend   # migraciones y arranque del servidor
+```
+
+| Servicio | Imagen / build | URL | Health check |
+|---|---|---|---|
+| `db` | `mysql:8` | `localhost:3306` | `mysqladmin ping` |
+| `backend` | `app/backend/Dockerfile` (Node 22, multi-etapa) | `http://localhost:3000` | `GET /health` |
+| `frontend` | `app/frontend/Dockerfile` (build de Vite + Nginx) | `http://localhost:5173` | `GET /healthz` |
+
+Cómo se construye cada imagen:
+
+- **Backend**: etapa de compilación con todas las dependencias (`npm ci`), `prisma generate` y
+  `npm run build` (TypeScript + reescritura del alias `@/`); etapa de ejecución con solo
+  dependencias de producción, el cliente generado, `dist/` y las migraciones. El contenedor arranca
+  con `npx prisma migrate deploy && node dist/server.js`, por lo que la base queda migrada antes de
+  aceptar peticiones. El CLI de Prisma está en `dependencies` precisamente para poder migrar dentro
+  de la imagen.
+- **Frontend**: etapa de compilación con Vite y etapa final `nginx:alpine` que sirve el bundle y hace
+  de proxy inverso de `/api` y `/uploads` hacia el backend (además de resolver las rutas de la SPA con
+  `try_files ... /index.html` y admitir subidas de hasta 6 MB, por encima del límite de 5 MB de
+  multer).
+
+Detalles que hacen que el arranque sea cómodo: los `depends_on` con `condition: service_healthy`
+evitan que el backend arranque antes que MySQL o que Nginx resuelva el nombre `backend` cuando aún no
+existe; la carpeta `app/backend/uploads` se comparte con el contenedor, así que las imágenes del seed
+y las subidas se ven igual desde Docker y desde el modo desarrollo; y el volumen `db_data` conserva la
+base entre arranques (el seed solo hace falta ejecutarlo una vez).
+
+### 7.2 Modo desarrollo con dos terminales (recarga en caliente)
 
 ```bash
 # 1. Base de datos
 cd app
-docker compose up -d                 # MySQL 8 en el puerto 3306
+docker compose up -d db              # solo MySQL, puerto 3306
 
 # 2. Backend
 cd backend
@@ -1973,6 +2024,8 @@ npm install
 npm run dev                          # http://127.0.0.1:5173
 ```
 
+En este modo el proxy lo hace Vite (`vite.config.ts`) en lugar de Nginx.
+
 Credenciales de prueba: `cole1@test.com` / `password123` (dueño del álbum y la colección de
 demostración) y `cole2@test.com` / `password123` (para comprobar los 403 y la visibilidad).
 
@@ -1980,8 +2033,10 @@ Comprobaciones útiles y problemas frecuentes:
 
 | Síntoma | Causa habitual | Solución |
 |---|---|---|
-| `EADDRINUSE` en 3000 o 5173 | Otro proceso usa el puerto | Cerrar ese proceso o cambiar `PORT` / el puerto de Vite |
-| El servidor no arranca y muestra "Variables de entorno inválidas" | Falta `.env` o `SESSION_SECRET` corto | Copiar `.env.example` y completar los valores |
+| `EADDRINUSE` en 3000 o 5173 | Otro proceso usa el puerto (o ya está el stack de Compose levantado) | `docker compose down` o cerrar ese proceso |
+| Un servicio no llega a `(healthy)` | Su dependencia no está sana | `docker compose logs <servicio>` |
+| `backend` reiniciándose en bucle | `DATABASE_URL` incorrecta o MySQL aún iniciando | Revisar los registros; el `depends_on` con `service_healthy` lo evita |
+| El servidor no arranca y muestra "Variables de entorno inválidas" | Falta `.env` o `SESSION_SECRET` corto (solo en modo desarrollo) | Copiar `.env.example` y completar los valores |
 | Error de conexión a MySQL | El contenedor no está arriba | `docker compose ps` y `docker compose up -d` |
 | Vite arranca en otro puerto | El 5173 está ocupado | Usar el puerto que indique la consola |
 
@@ -2133,6 +2188,12 @@ export type SeedCollection = {
   propiedad, visibilidad, reportes, conflicto 409, subidas) y de la interfaz en navegador (login y
   logout, ruta protegida, perfil público, edición de álbum y lámina, validación inline, progreso y
   repetidas).
+- Stack completo con Docker Compose verificado: `docker compose up -d --build` deja los tres
+  servicios en `(healthy)`; el backend aplica las migraciones al arrancar; `/health` responde
+  `{"status":"ok","database":"up"}` y pasa a `503` con `database: "down"` al detener MySQL, volviendo
+  a `200` cuando la base se recupera; a través de Nginx se sirve la SPA, se proxean `/api` y
+  `/uploads`, se conserva el `404` de la API, el login con cookie funciona y una subida de 2 MB se
+  acepta y se sirve de vuelta.
 
 ---
 
@@ -2148,7 +2209,9 @@ export type SeedCollection = {
 | **Interfaces + inyección** | Contratos `I*` y una única raíz de composición: capas intercambiables y pruebas sin base de datos |
 | **Subida de imágenes** | Extensión derivada del MIME y lista blanca; nunca se confía en el nombre original |
 | **Códigos de estado** | Además de los del brief se usa `413` cuando el cuerpo JSON excede el límite (el archivo de más de 5 MB responde `400 file_too_large`) |
-| **Compose** | Variables con valores por defecto (`${VAR:-valor}`) para poder levantar MySQL sin crear un `.env` |
+| **Compose** | Variables con valores por defecto (`${VAR:-valor}`) para poder levantar el stack sin crear un `.env` |
+| **Contenerización** | Backend multi-etapa (compila y luego ejecuta solo dependencias de producción) con migraciones al arrancar; frontend servido por Nginx, que además hace de proxy inverso y resuelve las rutas de la SPA |
+| **Health check** | El backend expone `/health` consultando MySQL (`SELECT 1`): es lo que permite que Compose no arranque el frontend hasta que la API esté operativa y que un fallo de base de datos se vea como `503` |
 | **Alcance** | La aplicación está pensada para ejecutarse en local (Docker + dos servidores de desarrollo): no incluye HTTPS, CORS ni despliegue |
 
 ---

@@ -1,7 +1,7 @@
 import { useEffect, useState, type FormEvent } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { useAuth } from '@/context/AuthContext'
-import { api, getFieldErrors, getIssues, isApiError } from '@/services/api'
+import { api, getServerErrors, getIssues, isApiError } from '@/services/api'
 import type { Album, Sticker } from '@/types'
 import {
   createStickerSchema,
@@ -11,17 +11,6 @@ import {
 } from '@/validations/sticker.schema'
 import { fieldErrors as zodFieldErrors } from '@/validations/common'
 import '@/validations/errorMap'
-
-/** Errores del servidor: por campo (`fieldErrors`) o de formulario (clave `_form`). */
-function serverErrors(
-  err: unknown,
-  fallback: string,
-): { fields: Record<string, string>; form: string | null } {
-  const { _form, ...fields } = getFieldErrors(err)
-  if (_form) return { fields, form: _form }
-  if (Object.keys(fields).length > 0) return { fields, form: null }
-  return { fields, form: err instanceof Error ? err.message : fallback }
-}
 
 /** Lámina leída del textarea, junto al número de línea del que proviene. */
 interface ParsedBulkRow {
@@ -146,7 +135,7 @@ export default function AlbumDetail() {
         return
       }
 
-      const { fields, form } = serverErrors(
+      const { fields, form } = getServerErrors(
         err,
         editingSticker ? 'Error al actualizar la lámina' : 'Error al agregar lámina',
       )

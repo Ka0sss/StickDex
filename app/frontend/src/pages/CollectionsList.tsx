@@ -1,22 +1,11 @@
 import { useEffect, useState, type FormEvent } from 'react'
 import { Link } from 'react-router-dom'
 import { useAuth } from '@/context/AuthContext'
-import { api, getFieldErrors } from '@/services/api'
+import { api, getServerErrors } from '@/services/api'
 import type { Album, CollectionSummary } from '@/types'
 import { createCollectionSchema } from '@/validations/collection.schema'
 import { fieldErrors as zodFieldErrors } from '@/validations/common'
 import '@/validations/errorMap'
-
-/** Errores del servidor: por campo (`fieldErrors`) o de formulario (clave `_form`). */
-function serverErrors(
-  err: unknown,
-  fallback: string,
-): { fields: Record<string, string>; form: string | null } {
-  const { _form, ...fields } = getFieldErrors(err)
-  if (_form) return { fields, form: _form }
-  if (Object.keys(fields).length > 0) return { fields, form: null }
-  return { fields, form: err instanceof Error ? err.message : fallback }
-}
 
 export default function CollectionsList() {
   const [collections, setCollections] = useState<CollectionSummary[]>([])
@@ -109,7 +98,7 @@ export default function CollectionsList() {
       setActiveTab('mine')
       await loadCollections()
     } catch (err: unknown) {
-      const { fields, form } = serverErrors(err, 'Error al crear la colección')
+      const { fields, form } = getServerErrors(err, 'Error al crear la colección')
       setFieldErrors(fields)
       setModalError(form)
     } finally {
